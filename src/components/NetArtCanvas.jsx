@@ -12,6 +12,7 @@ export default function NetArtCanvas({
   blendMode = 'normal',
   opacity = 0.9,
   decay = 0,
+  stampsPerMove = 1,
   onStamp
 }) {
   const [stamps, setStamps] = useState([]);
@@ -112,17 +113,34 @@ export default function NetArtCanvas({
       lastPosRef.current = { x: clientX, y: clientY };
 
       if (mode === 'scatter') {
-        const count = 2 + Math.floor(Math.random() * 3);
+        const count = Math.max(1, stampsPerMove);
         for (let i = 0; i < count; i++) {
           const offsetX = clientX + (Math.random() * 2 - 1) * spacing * 1.5;
           const offsetY = clientY + (Math.random() * 2 - 1) * spacing * 1.5;
           createStamp(offsetX, offsetY);
         }
+        // scatter historically had 2-4 stamps; ensure at least that feel when density=1
+        if (stampsPerMove === 1) {
+          // add one extra to keep scatter distinct from collage
+          const offsetX = clientX + (Math.random() * 2 - 1) * spacing * 1.5;
+          const offsetY = clientY + (Math.random() * 2 - 1) * spacing * 1.5;
+          createStamp(offsetX, offsetY);
+        }
       } else {
-        createStamp(clientX, clientY);
+        // collage
+        if (stampsPerMove <= 1) {
+          createStamp(clientX, clientY);
+        } else {
+          for (let i = 0; i < stampsPerMove; i++) {
+            const jitter = spacing * 0.4;
+            const offsetX = clientX + (Math.random() * 2 - 1) * jitter;
+            const offsetY = clientY + (Math.random() * 2 - 1) * jitter;
+            createStamp(offsetX, offsetY);
+          }
+        }
       }
     }
-  }, [mode, spacing, createStamp]);
+  }, [mode, spacing, stampsPerMove, createStamp]);
 
   const onMouseMove = useCallback((e) => {
     handleMove(e.clientX, e.clientY);

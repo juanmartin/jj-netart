@@ -4,6 +4,7 @@ import NetArtCanvas from './components/NetArtCanvas.jsx';
 import BackgroundLayer from './components/BackgroundLayer.jsx';
 import ControlPanel from './components/ControlPanel.jsx';
 import AssetManagerModal from './components/AssetManagerModal.jsx';
+import ShortcutsPanel from './components/ShortcutsPanel.jsx';
 import HeaderNav from './components/HeaderNav.jsx';
 import { useAudioSynth } from './hooks/useAudioSynth.js';
 import { DEFAULT_FOREGROUND_ASSETS, DEFAULT_BACKGROUND_ASSETS } from './utils/assetLoader.js';
@@ -19,9 +20,18 @@ export default function App() {
   const [blendMode, setBlendMode] = useState('normal');
   const [uiVisible, setUiVisible] = useState(true);
   const [assetsOpen, setAssetsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [bgFilter, setBgFilter] = useState('none');
   const [bgKenburns, setBgKenburns] = useState(true);
   const [clearKey, setClearKey] = useState(0);
+  // SETTINGS — wired to ControlPanel drawer + NetArtCanvas
+  const [spacing, setSpacing] = useState(40);
+  const [stampSize, setStampSize] = useState(120);
+  const [stampsPerMove, setStampsPerMove] = useState(1);
+  const [rotationJitter, setRotationJitter] = useState(15);
+  const [scaleJitter, setScaleJitter] = useState(0.3);
+  const [opacity, setOpacity] = useState(0.9);
+  const [decay, setDecay] = useState(0);
 
   const containerRef = useRef(null);
   const { soundEnabled, toggleSound, playStampSound, initAudio } = useAudioSynth();
@@ -75,12 +85,44 @@ export default function App() {
     setUiVisible(prev => !prev);
   }, []);
 
+  const handleToggleHelp = useCallback(() => {
+    setHelpOpen(prev => !prev);
+  }, []);
+
+  const handleApplyPreset = useCallback((preset) => {
+    if (preset.spacing !== undefined) setSpacing(preset.spacing);
+    if (preset.stampSize !== undefined) setStampSize(preset.stampSize);
+    if (preset.stampsPerMove !== undefined) setStampsPerMove(preset.stampsPerMove);
+    if (preset.rotationJitter !== undefined) setRotationJitter(preset.rotationJitter);
+    if (preset.scaleJitter !== undefined) setScaleJitter(preset.scaleJitter);
+    if (preset.opacity !== undefined) setOpacity(preset.opacity);
+    if (preset.decay !== undefined) setDecay(preset.decay);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
-      // Don't capture when modal is open or typing in input
-      if (assetsOpen) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      // Global: Esc closes any overlay
+      if (e.key === 'Escape') {
+        if (assetsOpen || helpOpen) {
+          e.preventDefault();
+          setAssetsOpen(false);
+          setHelpOpen(false);
+          return;
+        }
+      }
+
+      // '?' always toggles help (even when a modal is open)
+      if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+        e.preventDefault();
+        setHelpOpen(prev => !prev);
+        return;
+      }
+
+      // Don't capture other shortcuts when a modal is open
+      if (assetsOpen || helpOpen) return;
 
       switch (e.key.toLowerCase()) {
         case 'h':
@@ -111,7 +153,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [assetsOpen, handleToggleUI, handleClear, handleSnapshot, handleSwitchBackground]);
+  }, [assetsOpen, helpOpen, handleToggleUI, handleClear, handleSnapshot, handleSwitchBackground]);
 
   // Global drag-and-drop on the canvas (adds to foreground by default)
   useEffect(() => {
@@ -156,6 +198,13 @@ export default function App() {
         images={foregroundImages}
         mode={mode}
         blendMode={blendMode}
+        spacing={spacing}
+        stampSize={stampSize}
+        stampsPerMove={stampsPerMove}
+        rotationJitter={rotationJitter}
+        scaleJitter={scaleJitter}
+        opacity={opacity}
+        decay={decay}
         onStamp={handleStamp}
       />
       <HeaderNav uiVisible={uiVisible} />
@@ -172,6 +221,23 @@ export default function App() {
         onOpenAssets={() => setAssetsOpen(true)}
         onSwitchBackground={handleSwitchBackground}
         hidden={!uiVisible}
+        spacing={spacing}
+        onSpacingChange={setSpacing}
+        stampSize={stampSize}
+        onStampSizeChange={setStampSize}
+        stampsPerMove={stampsPerMove}
+        onStampsPerMoveChange={setStampsPerMove}
+        rotationJitter={rotationJitter}
+        onRotationJitterChange={setRotationJitter}
+        scaleJitter={scaleJitter}
+        onScaleJitterChange={setScaleJitter}
+        opacity={opacity}
+        onOpacityChange={setOpacity}
+        decay={decay}
+        onDecayChange={setDecay}
+        onApplyPreset={handleApplyPreset}
+        helpOpen={helpOpen}
+        onToggleHelp={handleToggleHelp}
       />
       <AssetManagerModal
         visible={assetsOpen}
@@ -180,6 +246,10 @@ export default function App() {
         backgroundImages={backgroundImages}
         onAddForeground={handleAddForeground}
         onAddBackground={handleAddBackground}
+      />
+      <ShortcutsPanel
+        visible={helpOpen}
+        onClose={() => setHelpOpen(false)}
       />
     </div>
   );

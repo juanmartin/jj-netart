@@ -390,6 +390,61 @@ html, body {
   opacity: 1;
 }
 
+/* ─── Shortcuts Panel ─── */
+.shortcuts-modal {
+  max-width: 420px;
+}
+
+.shortcuts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+}
+
+.shortcut-key {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 4px 10px;
+  min-width: 56px;
+  text-align: center;
+}
+
+.shortcut-desc {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.shortcuts-hint {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.5;
+}
+
 /* ─── Settings Drawer ─── */
 .settings-drawer {
   position: fixed;

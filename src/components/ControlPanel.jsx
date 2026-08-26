@@ -60,6 +60,9 @@ export default function ControlPanel({
   decay,
   onDecayChange,
   onApplyPreset,
+  // Help
+  helpOpen,
+  onToggleHelp,
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -193,6 +196,15 @@ export default function ControlPanel({
         <div className="control-separator" />
         <button className="control-btn" onClick={onToggleUI}>
           HIDE
+        </button>
+        <div className="control-separator" />
+        <button
+          className={`control-btn${helpOpen ? ' active' : ''}`}
+          onClick={onToggleHelp}
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+        >
+          ?
         </button>
       </div>
     </>
