@@ -11,6 +11,21 @@ const PRESETS = {
   film: { spacing: 50, stampSize: 140, stampsPerMove: 1, rotationJitter: 0, scaleJitter: 0, opacity: 1, decay: 0 },
 };
 
+const FILTER_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'grayscale(100%)', label: 'Mono' },
+  { value: 'sepia(70%)', label: 'Sepia' },
+  { value: 'invert(100%)', label: 'Invert' },
+  { value: 'hue-rotate(90deg)', label: 'Hue 90°' },
+  { value: 'hue-rotate(180deg)', label: 'Hue 180°' },
+  { value: 'saturate(2.2)', label: 'Saturate' },
+  { value: 'contrast(1.8) brightness(1.1)', label: 'Punch' },
+  { value: 'blur(2px)', label: 'Blur' },
+  { value: 'sepia(50%) contrast(1.15) saturate(1.3) hue-rotate(-10deg)', label: 'Vintage' },
+];
+
+const WAVEFORMS = ['sine', 'square', 'sawtooth', 'triangle'];
+
 function Slider({ label, value, min, max, step, onChange, unit = '' }) {
   return (
     <div className="setting-row">
@@ -44,7 +59,7 @@ export default function ControlPanel({
   onOpenAssets,
   onSwitchBackground,
   hidden,
-  // Tunable params
+  // Stamp
   spacing,
   onSpacingChange,
   stampSize,
@@ -60,6 +75,23 @@ export default function ControlPanel({
   decay,
   onDecayChange,
   onApplyPreset,
+  // Visual
+  bgFilter,
+  onBgFilterChange,
+  bgKenburns,
+  onBgKenburnsChange,
+  noiseOpacity,
+  onNoiseOpacityChange,
+  // Sound synth
+  soundWaveform,
+  onSoundWaveformChange,
+  soundVolume,
+  onSoundVolumeChange,
+  soundDuration,
+  onSoundDurationChange,
+  soundPitchShift,
+  onSoundPitchShiftChange,
+  onPreviewSound,
   // Help
   helpOpen,
   onToggleHelp,
@@ -138,6 +170,97 @@ export default function ControlPanel({
               onChange={onDecayChange}
               unit={decay === 0 ? ' ∞' : 'ms'}
             />
+          </div>
+
+          <div className="settings-section-title">Visual — Background &amp; Effects</div>
+          <div className="settings-grid">
+            <div className="setting-row">
+              <div className="setting-label"><span>BG Filter</span></div>
+              <select
+                className="setting-select"
+                value={bgFilter}
+                onChange={(e) => onBgFilterChange(e.target.value)}
+              >
+                {FILTER_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span>Motion</span>
+                <span className="setting-value">{bgKenburns ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${bgKenburns ? ' active' : ''}`}
+                onClick={() => onBgKenburnsChange(!bgKenburns)}
+              >
+                {bgKenburns ? 'KEN BURNS ON' : 'KEN BURNS OFF'}
+              </button>
+            </div>
+            <Slider
+              label="Noise"
+              value={noiseOpacity}
+              min={0} max={0.12} step={0.01}
+              onChange={onNoiseOpacityChange}
+              unit=""
+            />
+            <div className="setting-row">
+              <div className="setting-label"><span>Blend Mode</span></div>
+              <select
+                className="setting-select"
+                value={blendMode}
+                onChange={(e) => onBlendModeChange(e.target.value)}
+              >
+                {BLEND_MODES.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="settings-section-title">Sound Synth</div>
+          <div className="settings-grid">
+            <div className="setting-row settings-row-full">
+              <div className="setting-label"><span>Waveform</span><span className="setting-value">{soundWaveform}</span></div>
+              <div className="waveform-grid">
+                {WAVEFORMS.map(w => (
+                  <button
+                    key={w}
+                    className={`preset-btn${soundWaveform === w ? ' active' : ''}`}
+                    onClick={() => onSoundWaveformChange(w)}
+                  >
+                    {w}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Slider
+              label="Volume"
+              value={soundVolume}
+              min={0.01} max={0.3} step={0.01}
+              onChange={onSoundVolumeChange}
+              unit=""
+            />
+            <Slider
+              label="Duration"
+              value={soundDuration}
+              min={0.03} max={0.5} step={0.01}
+              onChange={onSoundDurationChange}
+              unit="s"
+            />
+            <Slider
+              label="Pitch"
+              value={soundPitchShift}
+              min={-12} max={12} step={1}
+              onChange={onSoundPitchShiftChange}
+              unit=" st"
+            />
+            <div className="setting-row settings-row-full">
+              <button className="preset-btn" onClick={onPreviewSound} style={{ width: '100%', textAlign: 'center' }}>
+                ▶ PREVIEW SOUND
+              </button>
+            </div>
           </div>
 
           <div className="settings-section-title">Presets</div>

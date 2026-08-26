@@ -470,7 +470,7 @@ html, body {
 }
 
 .settings-drawer.open {
-  max-height: 440px;
+  max-height: 68vh;
   opacity: 1;
   pointer-events: auto;
   transform: translateX(-50%) translateY(0);
@@ -600,6 +600,65 @@ html, body {
   color: var(--text-primary);
   border-color: var(--border);
   background: var(--border-subtle);
+}
+
+.preset-btn.active {
+  color: var(--text-primary);
+  background: var(--border-subtle);
+  border-color: var(--border);
+}
+
+/* Select + Toggle inside settings */
+.setting-select {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  padding: 7px 8px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.setting-select:hover { border-color: var(--border); }
+.setting-select:focus { border-color: var(--text-dim); }
+
+.toggle-btn {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toggle-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.toggle-btn.active {
+  color: var(--text-primary);
+  background: var(--border-subtle);
+  border-color: var(--text-primary);
+}
+
+.waveform-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 4px;
 }
 
 /* ─── Utilities ─── */

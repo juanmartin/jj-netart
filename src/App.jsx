@@ -32,9 +32,21 @@ export default function App() {
   const [scaleJitter, setScaleJitter] = useState(0.3);
   const [opacity, setOpacity] = useState(0.9);
   const [decay, setDecay] = useState(0);
+  // VISUAL — background
+  const [noiseOpacity, setNoiseOpacity] = useState(0.035);
+  // SOUND — synth
+  const [soundWaveform, setSoundWaveform] = useState('sine');
+  const [soundVolume, setSoundVolume] = useState(0.08);
+  const [soundDuration, setSoundDuration] = useState(0.08);
+  const [soundPitchShift, setSoundPitchShift] = useState(0);
 
   const containerRef = useRef(null);
-  const { soundEnabled, toggleSound, playStampSound, initAudio } = useAudioSynth();
+  const { soundEnabled, toggleSound, playStampSound, initAudio } = useAudioSynth({
+    waveform: soundWaveform,
+    volume: soundVolume,
+    duration: soundDuration,
+    pitchShift: soundPitchShift,
+  });
 
   // Initialize audio on first interaction
   useEffect(() => {
@@ -98,6 +110,10 @@ export default function App() {
     if (preset.opacity !== undefined) setOpacity(preset.opacity);
     if (preset.decay !== undefined) setDecay(preset.decay);
   }, []);
+
+  const handlePreviewSound = useCallback(() => {
+    playStampSound(Math.floor(Math.random() * 6));
+  }, [playStampSound]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -192,6 +208,7 @@ export default function App() {
         currentIndex={bgIndex}
         filter={bgFilter}
         kenburns={bgKenburns}
+        noiseOpacity={noiseOpacity}
       />
       <NetArtCanvas
         key={clearKey}
@@ -236,6 +253,21 @@ export default function App() {
         decay={decay}
         onDecayChange={setDecay}
         onApplyPreset={handleApplyPreset}
+        bgFilter={bgFilter}
+        onBgFilterChange={setBgFilter}
+        bgKenburns={bgKenburns}
+        onBgKenburnsChange={setBgKenburns}
+        noiseOpacity={noiseOpacity}
+        onNoiseOpacityChange={setNoiseOpacity}
+        soundWaveform={soundWaveform}
+        onSoundWaveformChange={setSoundWaveform}
+        soundVolume={soundVolume}
+        onSoundVolumeChange={setSoundVolume}
+        soundDuration={soundDuration}
+        onSoundDurationChange={setSoundDuration}
+        soundPitchShift={soundPitchShift}
+        onSoundPitchShiftChange={setSoundPitchShift}
+        onPreviewSound={handlePreviewSound}
         helpOpen={helpOpen}
         onToggleHelp={handleToggleHelp}
       />

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function BackgroundLayer({ images, currentIndex, filter, kenburns }) {
+export default function BackgroundLayer({ images, currentIndex, filter, kenburns, noiseOpacity = 0.035 }) {
   return (
     <div className="background-layer">
       {images.map((src, i) => (
@@ -12,7 +12,7 @@ export default function BackgroundLayer({ images, currentIndex, filter, kenburns
           <img src={src} alt="" crossOrigin="anonymous" draggable={false} />
         </div>
       ))}
-      <div className="bg-noise-overlay" />
+      <div className="bg-noise-overlay" style={{ opacity: noiseOpacity }} />
     </div>
   );
 }
