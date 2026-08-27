@@ -8,4 +8,7 @@ export default defineConfig({
     host: true,
     allowedHosts: ['jm2.tail59251.ts.net']
   },
+  build: {
+    copyPublicDir: false,
+  },
 });
