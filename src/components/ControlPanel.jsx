@@ -80,6 +80,8 @@ export default function ControlPanel({
   onBgFilterChange,
   bgKenburns,
   onBgKenburnsChange,
+  bgAutoInterval,
+  onBgAutoIntervalChange,
   noiseOpacity,
   onNoiseOpacityChange,
   // Sound synth
@@ -204,6 +206,13 @@ export default function ControlPanel({
               min={0} max={0.12} step={0.01}
               onChange={onNoiseOpacityChange}
               unit=""
+            />
+            <Slider
+              label="BG Auto"
+              value={bgAutoInterval}
+              min={0} max={60} step={1}
+              onChange={onBgAutoIntervalChange}
+              unit={bgAutoInterval === 0 ? ' OFF' : 's'}
             />
             <div className="setting-row">
               <div className="setting-label"><span>Blend Mode</span></div>

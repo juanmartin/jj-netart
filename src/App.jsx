@@ -23,6 +23,7 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [bgFilter, setBgFilter] = useState('none');
   const [bgKenburns, setBgKenburns] = useState(true);
+  const [bgAutoInterval, setBgAutoInterval] = useState(10);
   const [clearKey, setClearKey] = useState(0);
   // SETTINGS — wired to ControlPanel drawer + NetArtCanvas
   const [spacing, setSpacing] = useState(40);
@@ -84,6 +85,13 @@ export default function App() {
   const handleSwitchBackground = useCallback(() => {
     setBgIndex(prev => (prev + 1) % backgroundImages.length);
   }, [backgroundImages.length]);
+
+  // Auto-rotate background every bgAutoInterval seconds (0 = off)
+  useEffect(() => {
+    if (bgAutoInterval <= 0 || backgroundImages.length <= 1) return;
+    const id = setInterval(handleSwitchBackground, bgAutoInterval * 1000);
+    return () => clearInterval(id);
+  }, [bgAutoInterval, backgroundImages.length, handleSwitchBackground]);
 
   const handleAddForeground = useCallback((urls) => {
     setForegroundImages(prev => [...prev, ...urls]);
@@ -257,6 +265,8 @@ export default function App() {
         onBgFilterChange={setBgFilter}
         bgKenburns={bgKenburns}
         onBgKenburnsChange={setBgKenburns}
+        bgAutoInterval={bgAutoInterval}
+        onBgAutoIntervalChange={setBgAutoInterval}
         noiseOpacity={noiseOpacity}
         onNoiseOpacityChange={setNoiseOpacity}
         soundWaveform={soundWaveform}
