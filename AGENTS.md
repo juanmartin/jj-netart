@@ -30,3 +30,6 @@
 
 ## Repo Layout Quirk
 - `jj-netart/` is a standalone git repo at `REPROPIOS/jj-netart/.git` nested inside the `REPROPIOS` parent repo (which still lists it as untracked `jj-netart/`). Always run `git` / `gh` with `workdir` = `REPROPIOS/jj-netart`. `dist/` and `node_modules/` are gitignored; do not commit them.
+
+## Workflow Preferences
+- Do not commit or push after changes — leave for user review. Only commit/push when explicitly requested.
