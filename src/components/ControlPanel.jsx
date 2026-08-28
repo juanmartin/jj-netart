@@ -93,6 +93,16 @@ export default function ControlPanel({
   onSoundDurationChange,
   soundPitchShift,
   onSoundPitchShiftChange,
+  delayEnabled,
+  onDelayEnabledChange,
+  delayTime,
+  onDelayTimeChange,
+  delayFeedback,
+  onDelayFeedbackChange,
+  delayWet,
+  onDelayWetChange,
+  randomizeOnBgChange,
+  onRandomizeOnBgChange,
   onPreviewSound,
   // Help
   helpOpen,
@@ -265,6 +275,51 @@ export default function ControlPanel({
               onChange={onSoundPitchShiftChange}
               unit=" st"
             />
+            <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span>Delay</span>
+                <span className="setting-value">{delayEnabled ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${delayEnabled ? ' active' : ''}`}
+                onClick={() => onDelayEnabledChange(!delayEnabled)}
+              >
+                {delayEnabled ? 'DELAY ON' : 'DELAY OFF'}
+              </button>
+            </div>
+            <Slider
+              label="Wet"
+              value={delayWet}
+              min={0} max={1} step={0.05}
+              onChange={onDelayWetChange}
+              unit=""
+            />
+            <Slider
+              label="Time"
+              value={delayTime}
+              min={0.05} max={1.8} step={0.05}
+              onChange={onDelayTimeChange}
+              unit="s"
+            />
+            <Slider
+              label="Feedback"
+              value={delayFeedback}
+              min={0} max={1} step={0.05}
+              onChange={onDelayFeedbackChange}
+              unit=""
+            />
+            <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span>Rnd on BG</span>
+                <span className="setting-value">{randomizeOnBgChange ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${randomizeOnBgChange ? ' active' : ''}`}
+                onClick={() => onRandomizeOnBgChange(!randomizeOnBgChange)}
+              >
+                {randomizeOnBgChange ? 'RANDOMIZE ON BG ON' : 'RANDOMIZE ON BG OFF'}
+              </button>
+            </div>
             <div className="setting-row settings-row-full">
               <button className="preset-btn" onClick={onPreviewSound} style={{ width: '100%', textAlign: 'center' }}>
                 ▶ PREVIEW SOUND

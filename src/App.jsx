@@ -40,6 +40,11 @@ export default function App() {
   const [soundVolume, setSoundVolume] = useState(0.08);
   const [soundDuration, setSoundDuration] = useState(0.08);
   const [soundPitchShift, setSoundPitchShift] = useState(0);
+  const [delayEnabled, setDelayEnabled] = useState(false);
+  const [delayTime, setDelayTime] = useState(0.3);
+  const [delayFeedback, setDelayFeedback] = useState(0.35);
+  const [delayWet, setDelayWet] = useState(0.4);
+  const [randomizeOnBgChange, setRandomizeOnBgChange] = useState(true);
 
   const containerRef = useRef(null);
   const { soundEnabled, toggleSound, playStampSound, initAudio } = useAudioSynth({
@@ -47,6 +52,10 @@ export default function App() {
     volume: soundVolume,
     duration: soundDuration,
     pitchShift: soundPitchShift,
+    delayEnabled,
+    delayTime,
+    delayFeedback,
+    delayWet,
   });
 
   // Initialize audio on first interaction
@@ -122,6 +131,27 @@ export default function App() {
   const handlePreviewSound = useCallback(() => {
     playStampSound(Math.floor(Math.random() * 6));
   }, [playStampSound]);
+
+  const randomizeSoundParams = useCallback(() => {
+    const waveforms = ['sine', 'square', 'sawtooth', 'triangle'];
+    setSoundWaveform(waveforms[Math.floor(Math.random() * waveforms.length)]);
+    setSoundVolume(parseFloat((Math.random() * 0.25 + 0.03).toFixed(2)));
+    setSoundDuration(parseFloat((Math.random() * 0.35 + 0.05).toFixed(2)));
+    setSoundPitchShift(Math.floor(Math.random() * 25) - 12);
+    setDelayTime(parseFloat((Math.random() * 1.7 + 0.1).toFixed(2)));
+    setDelayFeedback(parseFloat((Math.random() * 1).toFixed(2)));
+    setDelayWet(parseFloat((Math.random() * 0.7 + 0.1).toFixed(2)));
+  }, []);
+
+  const bgRandomizedRef = useRef(false);
+  useEffect(() => {
+    if (!bgRandomizedRef.current) {
+      bgRandomizedRef.current = true;
+      return;
+    }
+    if (!randomizeOnBgChange) return;
+    randomizeSoundParams();
+  }, [bgIndex, randomizeOnBgChange, randomizeSoundParams]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -277,6 +307,16 @@ export default function App() {
         onSoundDurationChange={setSoundDuration}
         soundPitchShift={soundPitchShift}
         onSoundPitchShiftChange={setSoundPitchShift}
+        delayEnabled={delayEnabled}
+        onDelayEnabledChange={setDelayEnabled}
+        delayTime={delayTime}
+        onDelayTimeChange={setDelayTime}
+        delayFeedback={delayFeedback}
+        onDelayFeedbackChange={setDelayFeedback}
+        delayWet={delayWet}
+        onDelayWetChange={setDelayWet}
+        randomizeOnBgChange={randomizeOnBgChange}
+        onRandomizeOnBgChange={setRandomizeOnBgChange}
         onPreviewSound={handlePreviewSound}
         helpOpen={helpOpen}
         onToggleHelp={handleToggleHelp}
