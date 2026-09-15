@@ -1,7 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-const MAX_STAMPS = 500;
-
 export default function NetArtCanvas({
   images,
   mode = 'collage',
@@ -13,6 +11,7 @@ export default function NetArtCanvas({
   opacity = 0.9,
   decay = 0,
   stampsPerMove = 1,
+  maxStamps = 180,
   onStamp
 }) {
   const [stamps, setStamps] = useState([]);
@@ -23,8 +22,98 @@ export default function NetArtCanvas({
   const targetRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef(null);
   const containerRef = useRef(null);
+  const cumulativeRotationRef = useRef(0);
+  const bakeCanvasRef = useRef(null);
+  const bakeCtxRef = useRef(null);
 
-  // Decay: schedule removal
+  // Setup bake canvas (persistent low-weight layer for unlimited draw)
+  useEffect(() => {
+    const canvas = bakeCanvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    // Use viewport size if container not yet measured
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    bakeCtxRef.current = ctx;
+
+    const handleResize = () => {
+      const nw = window.innerWidth;
+      const nh = window.innerHeight;
+      const ndpr = window.devicePixelRatio || 1;
+      // Preserve existing bitmap by copying to temp
+      const temp = document.createElement('canvas');
+      temp.width = canvas.width;
+      temp.height = canvas.height;
+      const tCtx = temp.getContext('2d');
+      tCtx.drawImage(canvas, 0, 0);
+      canvas.width = nw * ndpr;
+      canvas.height = nh * ndpr;
+      canvas.style.width = nw + 'px';
+      canvas.style.height = nh + 'px';
+      ctx.setTransform(ndpr, 0, 0, ndpr, 0, 0);
+      // Redraw old content scaled (best effort)
+      ctx.drawImage(temp, 0, 0, temp.width / (window.devicePixelRatio || 1), temp.height / (window.devicePixelRatio || 1));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const bakeStamps = useCallback((stampsToBake) => {
+    const ctx = bakeCtxRef.current;
+    const canvas = bakeCanvasRef.current;
+    if (!ctx || !canvas || stampsToBake.length === 0) return;
+    stampsToBake.forEach((stamp) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = stamp.imageUrl;
+      const draw = () => {
+        ctx.save();
+        ctx.globalAlpha = stamp.opacity;
+        // Map blendMode to canvas composite
+        const compositeMap = {
+          normal: 'source-over',
+          multiply: 'multiply',
+          screen: 'screen',
+          overlay: 'overlay',
+          difference: 'difference',
+          exclusion: 'exclusion',
+          luminosity: 'luminosity',
+          'color-dodge': 'color-dodge',
+        };
+        ctx.globalCompositeOperation = compositeMap[stamp.blendMode] || 'source-over';
+        ctx.translate(stamp.x, stamp.y);
+        ctx.rotate((stamp.rotation * Math.PI) / 180);
+        ctx.scale(stamp.scale, stamp.scale);
+        const size = stamp.size ?? stampSize;
+        // Draw centered
+        const drawW = size;
+        const drawH = size;
+        // Keep aspect ratio: draw with contain logic - use image natural ratio
+        // We draw as square contain (object-fit: contain) so compute scaled size
+        const iw = img.naturalWidth || drawW;
+        const ih = img.naturalHeight || drawH;
+        const scale = Math.min(drawW / iw, drawH / ih);
+        const w = iw * scale;
+        const h = ih * scale;
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      };
+      if (img.complete && img.naturalWidth) {
+        draw();
+      } else {
+        img.onload = draw;
+      }
+    });
+  }, [stampSize]);
+
+  // Decay: schedule removal (does not bake, just removes)
   useEffect(() => {
     if (decay <= 0) return;
     const interval = setInterval(() => {
@@ -55,6 +144,8 @@ export default function NetArtCanvas({
           rotation: 0,
           scale: 1,
           opacity: opacity,
+          blendMode,
+          size: stampSize,
           createdAt: Date.now()
         }]);
       }
@@ -65,7 +156,7 @@ export default function NetArtCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [mode, images, opacity]);
+  }, [mode, images, opacity, blendMode, stampSize]);
 
   const createStamp = useCallback((x, y) => {
     if (!images || images.length === 0) return;
@@ -73,7 +164,9 @@ export default function NetArtCanvas({
     const imgUrl = images[imgIndexRef.current % images.length];
     imgIndexRef.current++;
 
-    const rotation = (Math.random() * 2 - 1) * rotationJitter;
+    const step = rotationJitter * 0.08;
+    cumulativeRotationRef.current = (cumulativeRotationRef.current + step) % 360;
+    const rotation = cumulativeRotationRef.current;
     const scale = 1 + (Math.random() * 2 - 1) * scaleJitter;
     const id = stampIdRef.current++;
 
@@ -85,19 +178,33 @@ export default function NetArtCanvas({
       rotation,
       scale,
       opacity,
+      blendMode,
+      size: stampSize,
       createdAt: Date.now()
     };
 
+    // Cap 0 = unlimited: pure canvas (no DOM) when decay is off for glitch-free dense trails
+    if (maxStamps === 0 && decay <= 0 && mode !== 'follower') {
+      bakeStamps([newStamp]);
+      if (onStamp) onStamp(id);
+      return;
+    }
+
     setStamps(prev => {
       const next = [...prev, newStamp];
-      if (next.length > MAX_STAMPS) {
-        return next.slice(next.length - MAX_STAMPS);
+      if (maxStamps > 0 && next.length > maxStamps) {
+        const excess = next.length - maxStamps;
+        const toBake = next.slice(0, excess);
+        if (mode !== 'follower' && decay <= 0) {
+          bakeStamps(toBake);
+        }
+        return next.slice(excess);
       }
       return next;
     });
 
     if (onStamp) onStamp(id);
-  }, [images, rotationJitter, scaleJitter, opacity, onStamp]);
+  }, [images, rotationJitter, scaleJitter, opacity, blendMode, stampSize, onStamp, mode, decay, bakeStamps]);
 
   const handleMove = useCallback((clientX, clientY) => {
     if (mode === 'follower') {
@@ -160,6 +267,17 @@ export default function NetArtCanvas({
       onMouseMove={onMouseMove}
       onTouchMove={onTouchMove}
     >
+      <canvas
+        ref={bakeCanvasRef}
+        className="bake-canvas"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+        }}
+      />
       {stamps.map((stamp) => {
         const transformValue = `translate(-50%, -50%) rotate(${stamp.rotation}deg) scale(${stamp.scale})`;
         return (
@@ -172,7 +290,7 @@ export default function NetArtCanvas({
               '--stamp-transform': `translate(-50%, -50%) rotate(${stamp.rotation}deg)`,
               '--stamp-opacity': stamp.opacity,
               transform: transformValue,
-              mixBlendMode: blendMode,
+              mixBlendMode: stamp.blendMode || blendMode,
               opacity: stamp.opacity,
               animationDelay: '0s',
               ...(decay > 0 ? {
@@ -184,7 +302,7 @@ export default function NetArtCanvas({
             <img
               src={stamp.imageUrl}
               alt=""
-              style={{ width: stampSize, height: stampSize }}
+              style={{ width: stamp.size ?? stampSize, height: stamp.size ?? stampSize }}
               draggable={false}
             />
           </div>

@@ -43,6 +43,10 @@ html, body {
   cursor: crosshair;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 #root {
@@ -67,6 +71,13 @@ html, body {
   height: 100vh;
   overflow: hidden;
   background: var(--bg-base);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app-container.hide-cursor,
+.app-container.hide-cursor * {
+  cursor: none !important;
 }
 
 /* ─── Background Layer ─── */
@@ -81,7 +92,7 @@ html, body {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity 1.2s ease;
+  /* transition set via inline style from bgFadeDuration prop */
 }
 
 .bg-image.active {
@@ -116,6 +127,8 @@ html, body {
   inset: 0;
   z-index: var(--z-canvas);
   pointer-events: all;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .stamp {

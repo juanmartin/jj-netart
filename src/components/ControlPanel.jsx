@@ -9,7 +9,13 @@ const PRESETS = {
   chaos: { spacing: 5, stampSize: 60, stampsPerMove: 6, rotationJitter: 180, scaleJitter: 0.8, opacity: 0.7, decay: 3000 },
   ghost: { spacing: 30, stampSize: 150, stampsPerMove: 1, rotationJitter: 10, scaleJitter: 0.2, opacity: 0.3, decay: 1500 },
   film: { spacing: 50, stampSize: 140, stampsPerMove: 1, rotationJitter: 0, scaleJitter: 0, opacity: 1, decay: 0 },
+  trail: { spacing: 1, stampSize: 90, stampsPerMove: 1, rotationJitter: 0, scaleJitter: 0, opacity: 1, decay: 0 },
 };
+
+const repoPresetModules = import.meta.glob('../presets/*.json', { eager: true, import: 'default' });
+const REPO_PRESETS = Object.fromEntries(
+  Object.entries(repoPresetModules).map(([p, m]) => [p.split('/').pop().replace(/\.json$/, ''), m])
+);
 
 const FILTER_OPTIONS = [
   { value: 'none', label: 'None' },
@@ -74,7 +80,16 @@ export default function ControlPanel({
   onOpacityChange,
   decay,
   onDecayChange,
+  maxStamps,
+  onMaxStampsChange,
   onApplyPreset,
+  customPresets = {},
+  defaultPresetName,
+  onSaveCustomPreset,
+  onDeleteCustomPreset,
+  onSetDefaultPreset,
+  onExportPreset,
+  onImportPreset,
   // Visual
   bgFilter,
   onBgFilterChange,
@@ -82,6 +97,12 @@ export default function ControlPanel({
   onBgKenburnsChange,
   bgAutoInterval,
   onBgAutoIntervalChange,
+  bgFixed,
+  onBgFixedChange,
+  fgChangeOnClick,
+  onFgChangeOnClickChange,
+  bgFadeDuration,
+  onBgFadeDurationChange,
   noiseOpacity,
   onNoiseOpacityChange,
   // Sound synth
@@ -109,6 +130,7 @@ export default function ControlPanel({
   onToggleHelp,
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
 
   const cycleMode = () => {
     const idx = MODES.indexOf(mode);
@@ -130,21 +152,21 @@ export default function ControlPanel({
             <Slider
               label="Density"
               value={stampsPerMove}
-              min={1} max={12} step={1}
+              min={1} max={30} step={1}
               onChange={onStampsPerMoveChange}
               unit="×"
             />
             <Slider
               label="Spacing"
               value={spacing}
-              min={2} max={200} step={2}
+              min={1} max={200} step={1}
               onChange={onSpacingChange}
               unit="px"
             />
             <Slider
               label="Size"
               value={stampSize}
-              min={20} max={400} step={5}
+              min={20} max={1000} step={5}
               onChange={onStampSizeChange}
               unit="px"
             />
@@ -161,7 +183,7 @@ export default function ControlPanel({
             <Slider
               label="Rotation"
               value={rotationJitter}
-              min={0} max={180} step={1}
+              min={-180} max={180} step={1}
               onChange={onRotationJitterChange}
               unit="°"
             />
@@ -182,6 +204,29 @@ export default function ControlPanel({
               onChange={onDecayChange}
               unit={decay === 0 ? ' ∞' : 'ms'}
             />
+            <Slider
+              label="Cap"
+              value={maxStamps}
+              min={0} max={2000} step={50}
+              onChange={onMaxStampsChange}
+              unit={maxStamps === 0 ? ' ∞' : ''}
+            />
+          </div>
+
+          <div className="settings-section-title">Foreground</div>
+          <div className="settings-grid">
+            <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span>FG on Click</span>
+                <span className="setting-value">{fgChangeOnClick ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${fgChangeOnClick ? ' active' : ''}`}
+                onClick={() => onFgChangeOnClickChange(!fgChangeOnClick)}
+              >
+                {fgChangeOnClick ? 'FG CLICK ON' : 'FG CLICK OFF'}
+              </button>
+            </div>
           </div>
 
           <div className="settings-section-title">Visual — Background &amp; Effects</div>
@@ -220,9 +265,28 @@ export default function ControlPanel({
             <Slider
               label="BG Auto"
               value={bgAutoInterval}
-              min={0} max={60} step={1}
+              min={0} max={300} step={1}
               onChange={onBgAutoIntervalChange}
               unit={bgAutoInterval === 0 ? ' OFF' : 's'}
+            />
+            <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span>BG Fixed</span>
+                <span className="setting-value">{bgFixed ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${bgFixed ? ' active' : ''}`}
+                onClick={() => onBgFixedChange(!bgFixed)}
+              >
+                {bgFixed ? 'FIXED ON' : 'FIXED OFF'}
+              </button>
+            </div>
+            <Slider
+              label="BG Fade"
+              value={bgFadeDuration}
+              min={0} max={30} step={0.1}
+              onChange={onBgFadeDurationChange}
+              unit="s"
             />
             <div className="setting-row">
               <div className="setting-label"><span>Blend Mode</span></div>
@@ -241,6 +305,18 @@ export default function ControlPanel({
           <div className="settings-section-title">Sound Synth</div>
           <div className="settings-grid">
             <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span>Sound</span>
+                <span className="setting-value">{soundEnabled ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${soundEnabled ? ' active' : ''}`}
+                onClick={onToggleSound}
+              >
+                {soundEnabled ? 'SOUND ON' : 'SOUND OFF'}
+              </button>
+            </div>
+            <div className="setting-row settings-row-full">
               <div className="setting-label"><span>Waveform</span><span className="setting-value">{soundWaveform}</span></div>
               <div className="waveform-grid">
                 {WAVEFORMS.map(w => (
@@ -257,7 +333,7 @@ export default function ControlPanel({
             <Slider
               label="Volume"
               value={soundVolume}
-              min={0.01} max={0.3} step={0.01}
+              min={0.01} max={0.2} step={0.01}
               onChange={onSoundVolumeChange}
               unit=""
             />
@@ -339,6 +415,99 @@ export default function ControlPanel({
               </button>
             ))}
           </div>
+
+          {Object.keys(REPO_PRESETS).length > 0 && (
+            <>
+              <div className="settings-section-title" style={{ marginTop: 8 }}>Repo Presets</div>
+              <div className="settings-presets">
+                {Object.keys(REPO_PRESETS).map((name) => (
+                  <button
+                    key={name}
+                    className="preset-btn"
+                    onClick={() => onApplyPreset(REPO_PRESETS[name])}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="settings-section-title" style={{ marginTop: 14 }}>Custom Presets</div>
+          <div className="settings-grid">
+            <div className="setting-row settings-row-full">
+              <div className="setting-label"><span>Save current</span></div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input
+                  className="setting-select"
+                  style={{ flex: 1 }}
+                  placeholder="preset name"
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                />
+                <button
+                  className="preset-btn"
+                  onClick={() => {
+                    if (!newPresetName.trim()) return;
+                    onSaveCustomPreset && onSaveCustomPreset(newPresetName.trim());
+                    setNewPresetName('');
+                  }}
+                >
+                  SAVE
+                </button>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label"><span>Export current</span></div>
+              <button className="preset-btn" onClick={() => {
+                const n = newPresetName.trim();
+                onExportPreset && onExportPreset(n || undefined);
+              }}>
+                EXPORT JSON
+              </button>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label"><span>Import JSON</span></div>
+              <label className="preset-btn" style={{ textAlign: 'center', cursor: 'pointer' }}>
+                IMPORT
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files && e.target.files[0];
+                    if (f) onImportPreset && onImportPreset(f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+          {Object.keys(customPresets).length > 0 && (
+            <div className="settings-grid" style={{ marginTop: 8 }}>
+              {Object.keys(customPresets).map((name) => (
+                <div key={name} className="setting-row settings-row-full" style={{ border: '1px solid var(--border-subtle)', padding: 6, borderRadius: 2 }}>
+                  <div className="setting-label">
+                    <span>{name}</span>
+                    <span className="setting-value">{defaultPresetName === name ? '★ default' : ''}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                    <button className="preset-btn" onClick={() => onApplyPreset(customPresets[name])}>APPLY</button>
+                    <button className="preset-btn" onClick={() => onExportPreset && onExportPreset(name)}>EXPORT</button>
+                    <button className={`preset-btn${defaultPresetName === name ? ' active' : ''}`} onClick={() => onSetDefaultPreset && onSetDefaultPreset(name)}>{defaultPresetName === name ? 'DEFAULT ✓' : 'SET DEFAULT'}</button>
+                    <button className="preset-btn" onClick={() => onDeleteCustomPreset && onDeleteCustomPreset(name)} style={{ color: '#f87171' }}>DELETE</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {defaultPresetName && (
+            <div className="setting-row settings-row-full" style={{ marginTop: 8 }}>
+              <button className="preset-btn" style={{ width: '100%', textAlign: 'center' }} onClick={() => onSetDefaultPreset && onSetDefaultPreset(null)}>
+                CLEAR DEFAULT ({defaultPresetName})
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

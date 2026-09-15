@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 export function useAudioSynth(config = {}) {
   const {
@@ -10,9 +10,9 @@ export function useAudioSynth(config = {}) {
     delayTime = 0.3,
     delayFeedback = 0.35,
     delayWet = 0.4,
+    soundEnabled = true,
   } = config;
 
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const audioCtxRef = useRef(null);
   const delayNodeRef = useRef(null);
   const feedbackGainRef = useRef(null);
@@ -114,9 +114,5 @@ export function useAudioSynth(config = {}) {
     }
   }, [soundEnabled, initAudio, ensureDelayGraph, waveform, volume, duration, pitchShift]);
 
-  const toggleSound = useCallback(() => {
-    setSoundEnabled(prev => !prev);
-  }, []);
-
-  return { soundEnabled, toggleSound, playStampSound, initAudio };
+  return { playStampSound, initAudio };
 }

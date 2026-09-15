@@ -8,6 +8,8 @@ import ShortcutsPanel from './components/ShortcutsPanel.jsx';
 import HeaderNav from './components/HeaderNav.jsx';
 import { useAudioSynth } from './hooks/useAudioSynth.js';
 import { DEFAULT_FOREGROUND_ASSETS, DEFAULT_BACKGROUND_ASSETS } from './utils/assetLoader.js';
+import { loadCustomPresets, saveCustomPresets, getDefaultPresetName, setDefaultPresetName, downloadJson } from './utils/presetStorage.js';
+import defaultRepoPreset from './presets/default.json';
 
 const MODES = ['collage', 'follower', 'scatter'];
 const BLEND_MODES = ['normal', 'difference', 'multiply', 'screen', 'overlay'];
@@ -24,6 +26,10 @@ export default function App() {
   const [bgFilter, setBgFilter] = useState('none');
   const [bgKenburns, setBgKenburns] = useState(true);
   const [bgAutoInterval, setBgAutoInterval] = useState(10);
+  const [bgFixed, setBgFixed] = useState(false);
+  const [fgChangeOnClick, setFgChangeOnClick] = useState(false);
+  const [fgIndex, setFgIndex] = useState(0);
+  const [bgFadeDuration, setBgFadeDuration] = useState(1.2);
   const [clearKey, setClearKey] = useState(0);
   // SETTINGS — wired to ControlPanel drawer + NetArtCanvas
   const [spacing, setSpacing] = useState(40);
@@ -33,9 +39,13 @@ export default function App() {
   const [scaleJitter, setScaleJitter] = useState(0.3);
   const [opacity, setOpacity] = useState(0.9);
   const [decay, setDecay] = useState(0);
+  const [maxStamps, setMaxStamps] = useState(180);
+  const [customPresets, setCustomPresets] = useState({});
+  const [defaultPresetName, setDefaultPresetNameState] = useState(null);
   // VISUAL — background
   const [noiseOpacity, setNoiseOpacity] = useState(0.035);
   // SOUND — synth
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundWaveform, setSoundWaveform] = useState('sine');
   const [soundVolume, setSoundVolume] = useState(0.08);
   const [soundDuration, setSoundDuration] = useState(0.08);
@@ -47,7 +57,8 @@ export default function App() {
   const [randomizeOnBgChange, setRandomizeOnBgChange] = useState(true);
 
   const containerRef = useRef(null);
-  const { soundEnabled, toggleSound, playStampSound, initAudio } = useAudioSynth({
+  const toggleSound = useCallback(() => setSoundEnabled(prev => !prev), []);
+  const { playStampSound, initAudio } = useAudioSynth({
     waveform: soundWaveform,
     volume: soundVolume,
     duration: soundDuration,
@@ -56,6 +67,7 @@ export default function App() {
     delayTime,
     delayFeedback,
     delayWet,
+    soundEnabled,
   });
 
   // Initialize audio on first interaction
@@ -92,15 +104,23 @@ export default function App() {
   }, []);
 
   const handleSwitchBackground = useCallback(() => {
+    if (bgFixed) return;
     setBgIndex(prev => (prev + 1) % backgroundImages.length);
-  }, [backgroundImages.length]);
+  }, [backgroundImages.length, bgFixed]);
 
-  // Auto-rotate background every bgAutoInterval seconds (0 = off)
+  // Auto-rotate background every bgAutoInterval seconds (0 = off, disabled when fixed)
   useEffect(() => {
-    if (bgAutoInterval <= 0 || backgroundImages.length <= 1) return;
+    if (bgFixed || bgAutoInterval <= 0 || backgroundImages.length <= 1) return;
     const id = setInterval(handleSwitchBackground, bgAutoInterval * 1000);
     return () => clearInterval(id);
-  }, [bgAutoInterval, backgroundImages.length, handleSwitchBackground]);
+  }, [bgFixed, bgAutoInterval, backgroundImages.length, handleSwitchBackground]);
+
+  const handleForegroundClick = useCallback((e) => {
+    if (!fgChangeOnClick) return;
+    // ignore clicks on UI
+    if (e.target.closest('.control-panel') || e.target.closest('.settings-drawer') || e.target.closest('.asset-modal-overlay') || e.target.closest('.shortcuts-modal') || e.target.closest('.header-nav')) return;
+    setFgIndex(prev => (prev + 1) % Math.max(1, foregroundImages.length));
+  }, [fgChangeOnClick, foregroundImages.length]);
 
   const handleAddForeground = useCallback((urls) => {
     setForegroundImages(prev => [...prev, ...urls]);
@@ -126,6 +146,107 @@ export default function App() {
     if (preset.scaleJitter !== undefined) setScaleJitter(preset.scaleJitter);
     if (preset.opacity !== undefined) setOpacity(preset.opacity);
     if (preset.decay !== undefined) setDecay(preset.decay);
+    if (preset.maxStamps !== undefined) setMaxStamps(preset.maxStamps);
+    if (preset.bgFilter !== undefined) setBgFilter(preset.bgFilter);
+    if (preset.bgKenburns !== undefined) setBgKenburns(preset.bgKenburns);
+    if (preset.bgAutoInterval !== undefined) setBgAutoInterval(preset.bgAutoInterval);
+    if (preset.bgFixed !== undefined) setBgFixed(preset.bgFixed);
+    if (preset.fgChangeOnClick !== undefined) setFgChangeOnClick(preset.fgChangeOnClick);
+    if (preset.bgFadeDuration !== undefined) setBgFadeDuration(preset.bgFadeDuration);
+    if (preset.noiseOpacity !== undefined) setNoiseOpacity(preset.noiseOpacity);
+    if (preset.soundEnabled !== undefined) setSoundEnabled(preset.soundEnabled);
+    if (preset.soundWaveform !== undefined) setSoundWaveform(preset.soundWaveform);
+    if (preset.soundVolume !== undefined) setSoundVolume(preset.soundVolume);
+    if (preset.soundDuration !== undefined) setSoundDuration(preset.soundDuration);
+    if (preset.soundPitchShift !== undefined) setSoundPitchShift(preset.soundPitchShift);
+    if (preset.delayEnabled !== undefined) setDelayEnabled(preset.delayEnabled);
+    if (preset.delayTime !== undefined) setDelayTime(preset.delayTime);
+    if (preset.delayFeedback !== undefined) setDelayFeedback(preset.delayFeedback);
+    if (preset.delayWet !== undefined) setDelayWet(preset.delayWet);
+    if (preset.randomizeOnBgChange !== undefined) setRandomizeOnBgChange(preset.randomizeOnBgChange);
+    if (preset.blendMode !== undefined) setBlendMode(preset.blendMode);
+    if (preset.mode !== undefined) setMode(preset.mode);
+  }, []);
+
+  const getCurrentPresetData = useCallback(() => ({
+    spacing, stampSize, stampsPerMove, rotationJitter, scaleJitter, opacity, decay, maxStamps,
+    bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity,
+    soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift,
+    delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange,
+    blendMode, mode,
+  }), [spacing, stampSize, stampsPerMove, rotationJitter, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode, mode]);
+
+  const handleSaveCustomPreset = useCallback((name) => {
+    if (!name) return;
+    const data = getCurrentPresetData();
+    const updated = { ...customPresets, [name]: data };
+    setCustomPresets(updated);
+    saveCustomPresets(updated);
+  }, [customPresets, getCurrentPresetData]);
+
+  const handleDeleteCustomPreset = useCallback((name) => {
+    const updated = { ...customPresets };
+    delete updated[name];
+    setCustomPresets(updated);
+    saveCustomPresets(updated);
+    if (defaultPresetName === name) {
+      setDefaultPresetName(null);
+      setDefaultPresetNameState(null);
+    }
+  }, [customPresets, defaultPresetName]);
+
+  const handleSetDefaultPreset = useCallback((name) => {
+    setDefaultPresetName(name);
+    setDefaultPresetNameState(name);
+  }, []);
+
+  const handleExportPreset = useCallback((name) => {
+    let data;
+    let filename;
+    if (name && customPresets[name]) {
+      data = customPresets[name];
+      filename = name;
+    } else if (name) {
+      data = getCurrentPresetData();
+      filename = name;
+    } else {
+      data = getCurrentPresetData();
+      filename = 'preset';
+    }
+    downloadJson(data, filename);
+  }, [customPresets, getCurrentPresetData]);
+
+  const handleImportPreset = useCallback((file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        // If file contains a single preset object, prompt for name or use filename
+        const presetName = file.name.replace(/\.json$/i, '') || 'imported';
+        const updated = { ...loadCustomPresets(), [presetName]: data };
+        setCustomPresets(updated);
+        saveCustomPresets(updated);
+        handleApplyPreset(data);
+      } catch (err) {
+        console.error('Failed to import preset', err);
+      }
+    };
+    reader.readAsText(file);
+  }, [handleApplyPreset]);
+
+  // Load custom presets and default on mount
+  useEffect(() => {
+    const stored = loadCustomPresets();
+    setCustomPresets(stored);
+    const defName = getDefaultPresetName();
+    setDefaultPresetNameState(defName);
+    if (defName && stored[defName]) {
+      handleApplyPreset(stored[defName]);
+    } else if (defaultRepoPreset) {
+      handleApplyPreset(defaultRepoPreset);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePreviewSound = useCallback(() => {
@@ -239,18 +360,23 @@ export default function App() {
     };
   }, [assetsOpen, handleAddForeground]);
 
+  const displayForegroundImages = fgChangeOnClick && foregroundImages.length > 0
+    ? [foregroundImages[fgIndex % foregroundImages.length]]
+    : foregroundImages;
+
   return (
-    <div className="app-container" ref={containerRef}>
+    <div className={`app-container${!uiVisible ? ' hide-cursor' : ''}`} ref={containerRef} onClick={handleForegroundClick}>
       <BackgroundLayer
         images={backgroundImages}
         currentIndex={bgIndex}
         filter={bgFilter}
-        kenburns={bgKenburns}
+        kenburns={bgKenburns && !bgFixed}
         noiseOpacity={noiseOpacity}
+        fadeDuration={bgFadeDuration}
       />
       <NetArtCanvas
         key={clearKey}
-        images={foregroundImages}
+        images={displayForegroundImages}
         mode={mode}
         blendMode={blendMode}
         spacing={spacing}
@@ -260,6 +386,7 @@ export default function App() {
         scaleJitter={scaleJitter}
         opacity={opacity}
         decay={decay}
+        maxStamps={maxStamps}
         onStamp={handleStamp}
       />
       <HeaderNav uiVisible={uiVisible} />
@@ -290,13 +417,28 @@ export default function App() {
         onOpacityChange={setOpacity}
         decay={decay}
         onDecayChange={setDecay}
+        maxStamps={maxStamps}
+        onMaxStampsChange={setMaxStamps}
         onApplyPreset={handleApplyPreset}
+        customPresets={customPresets}
+        defaultPresetName={defaultPresetName}
+        onSaveCustomPreset={handleSaveCustomPreset}
+        onDeleteCustomPreset={handleDeleteCustomPreset}
+        onSetDefaultPreset={handleSetDefaultPreset}
+        onExportPreset={handleExportPreset}
+        onImportPreset={handleImportPreset}
         bgFilter={bgFilter}
         onBgFilterChange={setBgFilter}
         bgKenburns={bgKenburns}
         onBgKenburnsChange={setBgKenburns}
         bgAutoInterval={bgAutoInterval}
         onBgAutoIntervalChange={setBgAutoInterval}
+        bgFixed={bgFixed}
+        onBgFixedChange={setBgFixed}
+        fgChangeOnClick={fgChangeOnClick}
+        onFgChangeOnClickChange={setFgChangeOnClick}
+        bgFadeDuration={bgFadeDuration}
+        onBgFadeDurationChange={setBgFadeDuration}
         noiseOpacity={noiseOpacity}
         onNoiseOpacityChange={setNoiseOpacity}
         soundWaveform={soundWaveform}
