@@ -5,14 +5,15 @@ export default function NetArtCanvas({
   mode = 'collage',
   stampSize = 120,
   spacing = 40,
-  rotationJitter = 15,
+  rotation = 15,
   scaleJitter = 0.3,
   blendMode = 'normal',
   opacity = 0.9,
   decay = 0,
   stampsPerMove = 1,
   maxStamps = 180,
-  onStamp
+  onStamp,
+  onPadMove
 }) {
   const [stamps, setStamps] = useState([]);
   const lastPosRef = useRef({ x: -999, y: -999 });
@@ -161,13 +162,20 @@ export default function NetArtCanvas({
   const createStamp = useCallback((x, y) => {
     if (!images || images.length === 0) return;
 
-    const imgUrl = images[imgIndexRef.current % images.length];
-    imgIndexRef.current++;
+    let idx;
+    if (images.length === 1) idx = 0;
+    else {
+      do {
+        idx = Math.floor(Math.random() * images.length);
+      } while (idx === imgIndexRef.current && images.length > 1);
+      imgIndexRef.current = idx;
+    }
+    const imgUrl = images[idx];
 
-    const step = rotationJitter * 0.08;
+    const step = rotation * 0.08;
     cumulativeRotationRef.current = (cumulativeRotationRef.current + step) % 360;
-    const rotation = cumulativeRotationRef.current;
-    const scale = 1 + (Math.random() * 2 - 1) * scaleJitter;
+    const stampRotation = cumulativeRotationRef.current;
+    const scale = scaleJitter === 0 ? 1 : 1 + (Math.random() * 2 - 1) * scaleJitter;
     const id = stampIdRef.current++;
 
     const newStamp = {
@@ -175,7 +183,7 @@ export default function NetArtCanvas({
       x,
       y,
       imageUrl: imgUrl,
-      rotation,
+      rotation: stampRotation,
       scale,
       opacity,
       blendMode,
@@ -204,9 +212,10 @@ export default function NetArtCanvas({
     });
 
     if (onStamp) onStamp(id);
-  }, [images, rotationJitter, scaleJitter, opacity, blendMode, stampSize, onStamp, mode, decay, bakeStamps]);
+  }, [images, rotation, scaleJitter, opacity, blendMode, stampSize, onStamp, mode, decay, bakeStamps]);
 
   const handleMove = useCallback((clientX, clientY) => {
+    if (onPadMove) onPadMove(clientX, clientY);
     if (mode === 'follower') {
       targetRef.current = { x: clientX, y: clientY };
       return;
@@ -247,7 +256,7 @@ export default function NetArtCanvas({
         }
       }
     }
-  }, [mode, spacing, stampsPerMove, createStamp]);
+  }, [mode, spacing, stampsPerMove, createStamp, onPadMove]);
 
   const onMouseMove = useCallback((e) => {
     handleMove(e.clientX, e.clientY);
@@ -294,8 +303,8 @@ export default function NetArtCanvas({
               opacity: stamp.opacity,
               animationDelay: '0s',
               ...(decay > 0 ? {
-                animation: `fadeInStamp 0.15s ease-out, stampDecay ${decay}ms ease-in forwards`,
-                animationDelay: `0s, 0s`
+                animation: `stampDecay ${decay}ms ease-in forwards`,
+                animationDelay: `0s`
               } : {})
             }}
           >

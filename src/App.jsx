@@ -11,6 +11,11 @@ import { DEFAULT_FOREGROUND_ASSETS, DEFAULT_BACKGROUND_ASSETS } from './utils/as
 import { loadCustomPresets, saveCustomPresets, getDefaultPresetName, setDefaultPresetName, downloadJson } from './utils/presetStorage.js';
 import defaultRepoPreset from './presets/default.json';
 
+const repoPresetModules = import.meta.glob('./presets/*.json', { eager: true, import: 'default' });
+const REPO_PRESETS_MAP = Object.fromEntries(
+  Object.entries(repoPresetModules).map(([p, m]) => [p.split('/').pop().replace(/\.json$/, ''), m])
+);
+
 const MODES = ['collage', 'follower', 'scatter'];
 const BLEND_MODES = ['normal', 'difference', 'multiply', 'screen', 'overlay'];
 
@@ -20,9 +25,10 @@ export default function App() {
   const [bgIndex, setBgIndex] = useState(0);
   const [mode, setMode] = useState('collage');
   const [blendMode, setBlendMode] = useState('normal');
-  const [uiVisible, setUiVisible] = useState(true);
+  const [uiVisible, setUiVisible] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [captureButtonVisible, setCaptureButtonVisible] = useState(true);
   const [bgFilter, setBgFilter] = useState('none');
   const [bgKenburns, setBgKenburns] = useState(true);
   const [bgAutoInterval, setBgAutoInterval] = useState(10);
@@ -35,11 +41,12 @@ export default function App() {
   const [spacing, setSpacing] = useState(40);
   const [stampSize, setStampSize] = useState(120);
   const [stampsPerMove, setStampsPerMove] = useState(1);
-  const [rotationJitter, setRotationJitter] = useState(15);
+  const [rotation, setRotation] = useState(15);
   const [scaleJitter, setScaleJitter] = useState(0.3);
   const [opacity, setOpacity] = useState(0.9);
   const [decay, setDecay] = useState(0);
   const [maxStamps, setMaxStamps] = useState(180);
+  const [presetAutoInterval, setPresetAutoInterval] = useState(1);
   const [customPresets, setCustomPresets] = useState({});
   const [defaultPresetName, setDefaultPresetNameState] = useState(null);
   // VISUAL — background
@@ -58,7 +65,7 @@ export default function App() {
 
   const containerRef = useRef(null);
   const toggleSound = useCallback(() => setSoundEnabled(prev => !prev), []);
-  const { playStampSound, initAudio } = useAudioSynth({
+  const { playStampSound, initAudio, updatePad } = useAudioSynth({
     waveform: soundWaveform,
     volume: soundVolume,
     duration: soundDuration,
@@ -70,6 +77,10 @@ export default function App() {
     soundEnabled,
   });
 
+  const handlePadMove = useCallback((x, y) => {
+    updatePad(x, y);
+  }, [updatePad]);
+
   // Initialize audio on first interaction
   useEffect(() => {
     const handler = () => { initAudio(); window.removeEventListener('click', handler); };
@@ -77,9 +88,9 @@ export default function App() {
     return () => window.removeEventListener('click', handler);
   }, [initAudio]);
 
-  const handleStamp = useCallback((stampId) => {
-    playStampSound(stampId);
-  }, [playStampSound]);
+  const handleStamp = useCallback(() => {
+    // pad synth now handles sound on mouse move, not per stamp
+  }, []);
 
   const handleClear = useCallback(() => {
     setClearKey(prev => prev + 1);
@@ -91,7 +102,7 @@ export default function App() {
       const canvas = await html2canvas(containerRef.current, {
         backgroundColor: '#09090b',
         useCORS: true,
-        scale: 2,
+        scale: 1,
         logging: false,
       });
       const link = document.createElement('a');
@@ -119,7 +130,14 @@ export default function App() {
     if (!fgChangeOnClick) return;
     // ignore clicks on UI
     if (e.target.closest('.control-panel') || e.target.closest('.settings-drawer') || e.target.closest('.asset-modal-overlay') || e.target.closest('.shortcuts-modal') || e.target.closest('.header-nav')) return;
-    setFgIndex(prev => (prev + 1) % Math.max(1, foregroundImages.length));
+    setFgIndex(prev => {
+      if (foregroundImages.length <= 1) return prev;
+      let next;
+      do {
+        next = Math.floor(Math.random() * foregroundImages.length);
+      } while (next === prev);
+      return next;
+    });
   }, [fgChangeOnClick, foregroundImages.length]);
 
   const handleAddForeground = useCallback((urls) => {
@@ -138,11 +156,16 @@ export default function App() {
     setHelpOpen(prev => !prev);
   }, []);
 
+  const handleToggleCaptureButton = useCallback(() => {
+    setCaptureButtonVisible(prev => !prev);
+  }, []);
+
   const handleApplyPreset = useCallback((preset) => {
     if (preset.spacing !== undefined) setSpacing(preset.spacing);
     if (preset.stampSize !== undefined) setStampSize(preset.stampSize);
     if (preset.stampsPerMove !== undefined) setStampsPerMove(preset.stampsPerMove);
-    if (preset.rotationJitter !== undefined) setRotationJitter(preset.rotationJitter);
+    if (preset.rotation !== undefined) setRotation(preset.rotation);
+    else if (preset.rotationJitter !== undefined) setRotation(preset.rotationJitter);
     if (preset.scaleJitter !== undefined) setScaleJitter(preset.scaleJitter);
     if (preset.opacity !== undefined) setOpacity(preset.opacity);
     if (preset.decay !== undefined) setDecay(preset.decay);
@@ -169,12 +192,12 @@ export default function App() {
   }, []);
 
   const getCurrentPresetData = useCallback(() => ({
-    spacing, stampSize, stampsPerMove, rotationJitter, scaleJitter, opacity, decay, maxStamps,
+    spacing, stampSize, stampsPerMove, rotation, scaleJitter, opacity, decay, maxStamps,
     bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity,
     soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift,
     delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange,
     blendMode, mode,
-  }), [spacing, stampSize, stampsPerMove, rotationJitter, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode, mode]);
+  }), [spacing, stampSize, stampsPerMove, rotation, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode, mode]);
 
   const handleSaveCustomPreset = useCallback((name) => {
     if (!name) return;
@@ -235,9 +258,18 @@ export default function App() {
     reader.readAsText(file);
   }, [handleApplyPreset]);
 
-  // Load custom presets and default on mount
+  // Load custom presets and default on mount — migrate legacy rotationJitter key to rotation
   useEffect(() => {
     const stored = loadCustomPresets();
+    let migrated = false;
+    Object.keys(stored).forEach((k) => {
+      if (stored[k].rotationJitter !== undefined && stored[k].rotation === undefined) {
+        stored[k].rotation = stored[k].rotationJitter;
+        delete stored[k].rotationJitter;
+        migrated = true;
+      }
+    });
+    if (migrated) saveCustomPresets(stored);
     setCustomPresets(stored);
     const defName = getDefaultPresetName();
     setDefaultPresetNameState(defName);
@@ -274,6 +306,21 @@ export default function App() {
     randomizeSoundParams();
   }, [bgIndex, randomizeOnBgChange, randomizeSoundParams]);
 
+  const presetAutoRef = useRef(0);
+  useEffect(() => {
+    if (presetAutoInterval <= 0) return;
+    const getAll = () => ({ ...REPO_PRESETS_MAP, ...customPresets });
+    if (Object.keys(getAll()).length <= 1) return;
+    const id = setInterval(() => {
+      const all = getAll();
+      const names = Object.keys(all);
+      if (names.length === 0) return;
+      presetAutoRef.current = (presetAutoRef.current + 1) % names.length;
+      handleApplyPreset(all[names[presetAutoRef.current]]);
+    }, presetAutoInterval * 60 * 1000);
+    return () => clearInterval(id);
+  }, [presetAutoInterval, customPresets, handleApplyPreset]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -293,6 +340,13 @@ export default function App() {
       if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
         e.preventDefault();
         setHelpOpen(prev => !prev);
+        return;
+      }
+
+      // 'o' always toggles capture button (even when modal is open)
+      if (e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        handleToggleCaptureButton();
         return;
       }
 
@@ -328,7 +382,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [assetsOpen, helpOpen, handleToggleUI, handleClear, handleSnapshot, handleSwitchBackground]);
+  }, [assetsOpen, helpOpen, handleToggleUI, handleClear, handleSnapshot, handleSwitchBackground, handleToggleCaptureButton]);
 
   // Global drag-and-drop on the canvas (adds to foreground by default)
   useEffect(() => {
@@ -382,12 +436,13 @@ export default function App() {
         spacing={spacing}
         stampSize={stampSize}
         stampsPerMove={stampsPerMove}
-        rotationJitter={rotationJitter}
+        rotation={rotation}
         scaleJitter={scaleJitter}
         opacity={opacity}
         decay={decay}
         maxStamps={maxStamps}
         onStamp={handleStamp}
+        onPadMove={handlePadMove}
       />
       <HeaderNav uiVisible={uiVisible} />
       <ControlPanel
@@ -409,8 +464,8 @@ export default function App() {
         onStampSizeChange={setStampSize}
         stampsPerMove={stampsPerMove}
         onStampsPerMoveChange={setStampsPerMove}
-        rotationJitter={rotationJitter}
-        onRotationJitterChange={setRotationJitter}
+        rotation={rotation}
+        onRotationChange={setRotation}
         scaleJitter={scaleJitter}
         onScaleJitterChange={setScaleJitter}
         opacity={opacity}
@@ -419,6 +474,8 @@ export default function App() {
         onDecayChange={setDecay}
         maxStamps={maxStamps}
         onMaxStampsChange={setMaxStamps}
+        presetAutoInterval={presetAutoInterval}
+        onPresetAutoIntervalChange={setPresetAutoInterval}
         onApplyPreset={handleApplyPreset}
         customPresets={customPresets}
         defaultPresetName={defaultPresetName}
@@ -475,6 +532,16 @@ export default function App() {
         visible={helpOpen}
         onClose={() => setHelpOpen(false)}
       />
+      {captureButtonVisible && (
+        <button
+          className="capture-fab"
+          onClick={handleSnapshot}
+          aria-label="Captura"
+          title="Captura (S) — O to hide"
+        >
+          <span className="capture-fab-inner" />
+        </button>
+      )}
     </div>
   );
 }

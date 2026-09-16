@@ -2,7 +2,7 @@
   "spacing": 1,
   "stampSize": 350,
   "stampsPerMove": 1,
-  "rotationJitter": -26,
+  "rotation": 0,
   "scaleJitter": 0,
   "opacity": 1,
   "decay": 2100,

@@ -19,7 +19,7 @@
 - Runtime additions via drag-and-drop: global `window` drop in `src/App.jsx:117-144` adds to foreground; modal drop respects `targetPool` toggle.
 
 ## State & Wiring
-- All app state lives in `src/App.jsx` (foreground/background arrays, `bgIndex`, `mode`/`blendMode`, `clearKey`, plus `spacing`/`stampSize`/`stampsPerMove`/`rotationJitter`/`scaleJitter`/`opacity`/`decay` and `helpOpen`). `NetArtCanvas` is keyed by `clearKey` for reset.
+- All app state lives in `src/App.jsx` (foreground/background arrays, `bgIndex`, `mode`/`blendMode`, `clearKey`, plus `spacing`/`stampSize`/`stampsPerMove`/`rotation`/`scaleJitter`/`opacity`/`decay` and `helpOpen`). `NetArtCanvas` is keyed by `clearKey` for reset.
 - Settings drawer (`ControlPanel.jsx`) is fully wired — sliders and `PRESETS` flow through `handleApplyPreset` in `App.jsx`. `NetArtCanvas.jsx:stampsPerMove` controls density (collage = repeated stamps per trigger, scatter = spread count).
 - `NetArtCanvas.jsx:3` caps at `MAX_STAMPS = 500`; follower mode uses single stamped element + `requestAnimationFrame` lerp (ignores `spacing`/`stampsPerMove`).
 

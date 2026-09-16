@@ -4,12 +4,12 @@ const MODES = ['collage', 'follower', 'scatter'];
 const BLEND_MODES = ['normal', 'difference', 'multiply', 'screen', 'overlay', 'exclusion', 'luminosity', 'color-dodge'];
 
 const PRESETS = {
-  dense: { spacing: 10, stampSize: 80, stampsPerMove: 4, rotationJitter: 25, scaleJitter: 0.5, opacity: 0.85, decay: 0 },
-  sparse: { spacing: 120, stampSize: 200, stampsPerMove: 1, rotationJitter: 5, scaleJitter: 0.1, opacity: 0.95, decay: 0 },
-  chaos: { spacing: 5, stampSize: 60, stampsPerMove: 6, rotationJitter: 180, scaleJitter: 0.8, opacity: 0.7, decay: 3000 },
-  ghost: { spacing: 30, stampSize: 150, stampsPerMove: 1, rotationJitter: 10, scaleJitter: 0.2, opacity: 0.3, decay: 1500 },
-  film: { spacing: 50, stampSize: 140, stampsPerMove: 1, rotationJitter: 0, scaleJitter: 0, opacity: 1, decay: 0 },
-  trail: { spacing: 1, stampSize: 90, stampsPerMove: 1, rotationJitter: 0, scaleJitter: 0, opacity: 1, decay: 0 },
+  dense: { spacing: 10, stampSize: 80, stampsPerMove: 4, rotation: 25, scaleJitter: 0.5, opacity: 0.85, decay: 0 },
+  sparse: { spacing: 120, stampSize: 200, stampsPerMove: 1, rotation: 5, scaleJitter: 0.1, opacity: 0.95, decay: 0 },
+  chaos: { spacing: 5, stampSize: 60, stampsPerMove: 6, rotation: 180, scaleJitter: 0.8, opacity: 0.7, decay: 3000 },
+  ghost: { spacing: 30, stampSize: 150, stampsPerMove: 1, rotation: 10, scaleJitter: 0.2, opacity: 0.3, decay: 1500 },
+  film: { spacing: 50, stampSize: 140, stampsPerMove: 1, rotation: 0, scaleJitter: 0, opacity: 1, decay: 0 },
+  trail: { spacing: 1, stampSize: 90, stampsPerMove: 1, rotation: 0, scaleJitter: 0, opacity: 1, decay: 0 },
 };
 
 const repoPresetModules = import.meta.glob('../presets/*.json', { eager: true, import: 'default' });
@@ -72,8 +72,8 @@ export default function ControlPanel({
   onStampSizeChange,
   stampsPerMove,
   onStampsPerMoveChange,
-  rotationJitter,
-  onRotationJitterChange,
+  rotation,
+  onRotationChange,
   scaleJitter,
   onScaleJitterChange,
   opacity,
@@ -82,6 +82,8 @@ export default function ControlPanel({
   onDecayChange,
   maxStamps,
   onMaxStampsChange,
+  presetAutoInterval,
+  onPresetAutoIntervalChange,
   onApplyPreset,
   customPresets = {},
   defaultPresetName,
@@ -182,9 +184,9 @@ export default function ControlPanel({
           <div className="settings-grid">
             <Slider
               label="Rotation"
-              value={rotationJitter}
+              value={rotation}
               min={-180} max={180} step={1}
-              onChange={onRotationJitterChange}
+              onChange={onRotationChange}
               unit="°"
             />
             <Slider
@@ -508,6 +510,16 @@ export default function ControlPanel({
               </button>
             </div>
           )}
+          <div className="settings-section-title" style={{ marginTop: 8 }}>Preset Auto</div>
+          <div className="settings-grid">
+            <Slider
+              label="Auto Preset"
+              value={presetAutoInterval}
+              min={0} max={60} step={1}
+              onChange={onPresetAutoIntervalChange}
+              unit={presetAutoInterval === 0 ? ' OFF' : 'm'}
+            />
+          </div>
         </div>
       </div>
 

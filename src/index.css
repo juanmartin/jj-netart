@@ -134,7 +134,6 @@ html, body {
 .stamp {
   position: absolute;
   transform-origin: center center;
-  animation: fadeInStamp 0.15s ease-out both;
   pointer-events: none;
   will-change: transform, opacity;
 }
@@ -681,17 +680,6 @@ html, body {
 }
 
 /* ─── Keyframes ─── */
-@keyframes fadeInStamp {
-  from {
-    opacity: 0;
-    transform: var(--stamp-transform) scale(0.75);
-  }
-  to {
-    opacity: var(--stamp-opacity, 1);
-    transform: var(--stamp-transform) scale(1);
-  }
-}
-
 @keyframes kenburns {
   0% {
     transform: scale(1) translate(0, 0);
