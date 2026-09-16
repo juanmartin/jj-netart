@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 
-const MODES = ['collage', 'follower', 'scatter'];
 const BLEND_MODES = ['normal', 'difference', 'multiply', 'screen', 'overlay', 'exclusion', 'luminosity', 'color-dodge'];
 
 const PRESETS = {
-  dense: { spacing: 10, stampSize: 80, stampsPerMove: 4, rotation: 25, scaleJitter: 0.5, opacity: 0.85, decay: 0 },
-  sparse: { spacing: 120, stampSize: 200, stampsPerMove: 1, rotation: 5, scaleJitter: 0.1, opacity: 0.95, decay: 0 },
-  chaos: { spacing: 5, stampSize: 60, stampsPerMove: 6, rotation: 180, scaleJitter: 0.8, opacity: 0.7, decay: 3000 },
-  ghost: { spacing: 30, stampSize: 150, stampsPerMove: 1, rotation: 10, scaleJitter: 0.2, opacity: 0.3, decay: 1500 },
-  film: { spacing: 50, stampSize: 140, stampsPerMove: 1, rotation: 0, scaleJitter: 0, opacity: 1, decay: 0 },
-  trail: { spacing: 1, stampSize: 90, stampsPerMove: 1, rotation: 0, scaleJitter: 0, opacity: 1, decay: 0 },
+  dense: { spacing: 10, stampSize: 80, rotation: 25, scaleJitter: 0.5, opacity: 0.85, decay: 0 },
+  sparse: { spacing: 120, stampSize: 200, rotation: 5, scaleJitter: 0.1, opacity: 0.95, decay: 0 },
+  chaos: { spacing: 5, stampSize: 60, rotation: 180, scaleJitter: 0.8, opacity: 0.7, decay: 3000 },
+  ghost: { spacing: 30, stampSize: 150, rotation: 10, scaleJitter: 0.2, opacity: 0.3, decay: 1500 },
+  film: { spacing: 50, stampSize: 140, rotation: 0, scaleJitter: 0, opacity: 1, decay: 0 },
+  trail: { spacing: 1, stampSize: 90, rotation: 0, scaleJitter: 0, opacity: 1, decay: 0 },
 };
 
 const repoPresetModules = import.meta.glob('../presets/*.json', { eager: true, import: 'default' });
@@ -53,8 +52,6 @@ function Slider({ label, value, min, max, step, onChange, unit = '' }) {
 }
 
 export default function ControlPanel({
-  mode,
-  onModeChange,
   blendMode,
   onBlendModeChange,
   soundEnabled,
@@ -70,8 +67,6 @@ export default function ControlPanel({
   onSpacingChange,
   stampSize,
   onStampSizeChange,
-  stampsPerMove,
-  onStampsPerMoveChange,
   rotation,
   onRotationChange,
   scaleJitter,
@@ -134,11 +129,6 @@ export default function ControlPanel({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
 
-  const cycleMode = () => {
-    const idx = MODES.indexOf(mode);
-    onModeChange(MODES[(idx + 1) % MODES.length]);
-  };
-
   const cycleBlend = () => {
     const idx = BLEND_MODES.indexOf(blendMode);
     onBlendModeChange(BLEND_MODES[(idx + 1) % BLEND_MODES.length]);
@@ -151,13 +141,6 @@ export default function ControlPanel({
         <div className="settings-drawer-inner">
           <div className="settings-section-title">Stamp Controls</div>
           <div className="settings-grid">
-            <Slider
-              label="Density"
-              value={stampsPerMove}
-              min={1} max={30} step={1}
-              onChange={onStampsPerMoveChange}
-              unit="×"
-            />
             <Slider
               label="Spacing"
               value={spacing}
@@ -209,7 +192,7 @@ export default function ControlPanel({
             <Slider
               label="Cap"
               value={maxStamps}
-              min={0} max={2000} step={50}
+              min={0} max={500} step={50}
               onChange={onMaxStampsChange}
               unit={maxStamps === 0 ? ' ∞' : ''}
             />
@@ -525,10 +508,6 @@ export default function ControlPanel({
 
       {/* Bottom Control Bar */}
       <div className={`control-panel${hidden ? ' hidden' : ''}`}>
-        <button className="control-btn active" onClick={cycleMode}>
-          {mode.toUpperCase()}
-        </button>
-        <div className="control-separator" />
         <button className="control-btn" onClick={cycleBlend}>
           {blendMode.toUpperCase()}
         </button>

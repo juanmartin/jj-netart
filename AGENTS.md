@@ -19,12 +19,12 @@
 - Runtime additions via drag-and-drop: global `window` drop in `src/App.jsx:117-144` adds to foreground; modal drop respects `targetPool` toggle.
 
 ## State & Wiring
-- All app state lives in `src/App.jsx` (foreground/background arrays, `bgIndex`, `mode`/`blendMode`, `clearKey`, plus `spacing`/`stampSize`/`stampsPerMove`/`rotation`/`scaleJitter`/`opacity`/`decay` and `helpOpen`). `NetArtCanvas` is keyed by `clearKey` for reset.
-- Settings drawer (`ControlPanel.jsx`) is fully wired — sliders and `PRESETS` flow through `handleApplyPreset` in `App.jsx`. `NetArtCanvas.jsx:stampsPerMove` controls density (collage = repeated stamps per trigger, scatter = spread count).
-- `NetArtCanvas.jsx:3` caps at `MAX_STAMPS = 500`; follower mode uses single stamped element + `requestAnimationFrame` lerp (ignores `spacing`/`stampsPerMove`).
+- All app state lives in `src/App.jsx` (foreground/background arrays, `bgIndex`, `blendMode`, `clearKey`, plus `spacing`/`stampSize`/`rotation`/`scaleJitter`/`opacity`/`decay`/`maxStamps` and `helpOpen`). `NetArtCanvas` is keyed by `clearKey` for reset.
+- Settings drawer (`ControlPanel.jsx`) is fully wired — sliders and `PRESETS` flow through `handleApplyPreset` in `App.jsx`. Collage only (follower/scatter/mode removed); one stamp per trigger gated by `spacing`. DOM stamps hard-capped at 400 (`HARD_CAP` in `NetArtCanvas.jsx`); overflow bakes to canvas (or drops when fading).
+- `BackgroundLayer.jsx` mounts only current + previous image (cross-fade needs 2) — never all 47. Pad synth (`useAudioSynth.js`) drives sound from mouse position, not per stamp.
 
 ## Key Behaviors to Preserve
-- Keyboard shortcuts in `src/App.jsx` : `h` toggle UI, `c` clear, `s` snapshot, `space` next background, `r` randomize mode/blend, `?` toggle help, `Esc` close modals. Help panel is `ShortcutsPanel.jsx` (overlay like `AssetManagerModal`); toolbar `?` button mirrors `?` key.
+- Keyboard shortcuts in `src/App.jsx` : `h` toggle UI, `c` clear, `s` snapshot, `space` next background, `r` randomize blend, `o` capture button, `?` toggle help, `Esc` close modals. Help panel is `ShortcutsPanel.jsx` (overlay like `AssetManagerModal`); toolbar `?` button mirrors `?` key.
 - Snapshot: `html2canvas` at `scale: 2`, `backgroundColor: '#09090b'`, `useCORS: true` — see `src/App.jsx:44-60`.
 - Audio: `useAudioSynth` requires user gesture (`initAudio` on first click in `App.jsx:30-34`); `playStampSound` is no-op when `soundEnabled` is false.
 

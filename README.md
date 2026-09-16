@@ -20,9 +20,9 @@ npm run preview
 - Or drag & drop at runtime (global drop → foreground; Asset Manager modal → choose pool).
 
 ## Controls
-- **Canvas:** move cursor to stamp. Modes: `collage` / `follower` / `scatter` ; blend modes cycle in the bottom bar.
-- **Bar:** `SETTINGS` (density, spacing, size, opacity, rotation, decay, presets), `SND`, `BG`, `CLEAR`, `CAPTURA` (snapshot), `ASSETS`, `HIDE`
-- **Keys:** `h` hide UI, `c` clear, `s` snapshot, `space` next background, `r` randomize
+- **Canvas:** move cursor to stamp (collage). Blend modes cycle in the bottom bar.
+- **Bar:** `SETTINGS` (spacing, size, opacity, rotation, decay, cap, presets), `SND`, `BG`, `CLEAR`, `CAPTURA` (snapshot), `ASSETS`, `HIDE`
+- **Keys:** `h` hide UI, `c` clear, `s` snapshot, `space` next background, `r` randomize blend, `o` capture button, `?` help
 
 ## Project structure
 ```

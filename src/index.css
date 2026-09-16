@@ -135,13 +135,12 @@ html, body {
   position: absolute;
   transform-origin: center center;
   pointer-events: none;
-  will-change: transform, opacity;
+  contain: layout paint;
 }
 
 .stamp img {
   display: block;
   object-fit: contain;
-  will-change: transform;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
@@ -671,6 +670,49 @@ html, body {
   grid-template-columns: 1fr 1fr;
   gap: 4px;
   margin-top: 4px;
+}
+
+/* ─── Capture FAB (O) ─── */
+.capture-fab {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  z-index: var(--z-controls);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(24, 24, 27, 0.95);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.capture-fab:hover {
+  background: var(--bg-elevated);
+  border-color: var(--text-primary);
+  transform: translateX(-50%) scale(1.05);
+}
+
+.capture-fab:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+.capture-fab-inner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  border: 2px solid var(--bg-base);
+  transition: transform var(--transition-fast);
+}
+
+.capture-fab:active .capture-fab-inner {
+  transform: scale(0.9);
 }
 
 /* ─── Utilities ─── */

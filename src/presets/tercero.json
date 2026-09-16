@@ -1,7 +1,6 @@
 {
   "spacing": 1,
-  "stampSize": 855,
-  "stampsPerMove": 1,
+  "stampSize": 600,
   "rotation": 0,
   "scaleJitter": 0,
   "opacity": 0.8,
@@ -24,6 +23,5 @@
   "delayFeedback": 0.55,
   "delayWet": 0.4,
   "randomizeOnBgChange": false,
-  "blendMode": "normal",
-  "mode": "collage"
+  "blendMode": "normal"
 }

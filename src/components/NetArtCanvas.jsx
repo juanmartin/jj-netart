@@ -1,8 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
+// Hard ceiling for DOM stamps regardless of the Cap setting —
+// anything above is baked to canvas (or dropped when fading).
+const HARD_CAP = 400;
+
 export default function NetArtCanvas({
   images,
-  mode = 'collage',
   stampSize = 120,
   spacing = 40,
   rotation = 15,
@@ -10,7 +13,6 @@ export default function NetArtCanvas({
   blendMode = 'normal',
   opacity = 0.9,
   decay = 0,
-  stampsPerMove = 1,
   maxStamps = 180,
   onStamp,
   onPadMove
@@ -19,13 +21,11 @@ export default function NetArtCanvas({
   const lastPosRef = useRef({ x: -999, y: -999 });
   const imgIndexRef = useRef(0);
   const stampIdRef = useRef(0);
-  const followerRef = useRef({ x: 0, y: 0 });
-  const targetRef = useRef({ x: 0, y: 0 });
-  const rafRef = useRef(null);
   const containerRef = useRef(null);
   const cumulativeRotationRef = useRef(0);
   const bakeCanvasRef = useRef(null);
   const bakeCtxRef = useRef(null);
+  const imageCacheRef = useRef(new Map());
 
   // Setup bake canvas (persistent low-weight layer for unlimited draw)
   useEffect(() => {
@@ -66,15 +66,24 @@ export default function NetArtCanvas({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const getCachedImage = useCallback((url) => {
+    const cache = imageCacheRef.current;
+    if (cache.has(url)) return cache.get(url);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    cache.set(url, img);
+    return img;
+  }, []);
+
   const bakeStamps = useCallback((stampsToBake) => {
     const ctx = bakeCtxRef.current;
     const canvas = bakeCanvasRef.current;
     if (!ctx || !canvas || stampsToBake.length === 0) return;
     stampsToBake.forEach((stamp) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = stamp.imageUrl;
+      const img = getCachedImage(stamp.imageUrl);
       const draw = () => {
+        if (!img.naturalWidth) return;
         ctx.save();
         ctx.globalAlpha = stamp.opacity;
         // Map blendMode to canvas composite
@@ -110,9 +119,10 @@ export default function NetArtCanvas({
         draw();
       } else {
         img.onload = draw;
+        img.onerror = () => {};
       }
     });
-  }, [stampSize]);
+  }, [stampSize, getCachedImage]);
 
   // Decay: schedule removal (does not bake, just removes)
   useEffect(() => {
@@ -124,40 +134,7 @@ export default function NetArtCanvas({
     return () => clearInterval(interval);
   }, [decay]);
 
-  // Follower mode: lerp animation
-  useEffect(() => {
-    if (mode !== 'follower') {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      return;
-    }
-
-    const animate = () => {
-      followerRef.current.x += (targetRef.current.x - followerRef.current.x) * 0.12;
-      followerRef.current.y += (targetRef.current.y - followerRef.current.y) * 0.12;
-
-      if (images.length > 0) {
-        const imgUrl = images[0];
-        setStamps([{
-          id: 'follower',
-          x: followerRef.current.x,
-          y: followerRef.current.y,
-          imageUrl: imgUrl,
-          rotation: 0,
-          scale: 1,
-          opacity: opacity,
-          blendMode,
-          size: stampSize,
-          createdAt: Date.now()
-        }]);
-      }
-      rafRef.current = requestAnimationFrame(animate);
-    };
-
-    rafRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [mode, images, opacity, blendMode, stampSize]);
+  // Collage only — no follower/scatter modes.
 
   const createStamp = useCallback((x, y) => {
     if (!images || images.length === 0) return;
@@ -192,7 +169,7 @@ export default function NetArtCanvas({
     };
 
     // Cap 0 = unlimited: pure canvas (no DOM) when decay is off for glitch-free dense trails
-    if (maxStamps === 0 && decay <= 0 && mode !== 'follower') {
+    if (maxStamps === 0 && decay <= 0) {
       bakeStamps([newStamp]);
       if (onStamp) onStamp(id);
       return;
@@ -200,10 +177,11 @@ export default function NetArtCanvas({
 
     setStamps(prev => {
       const next = [...prev, newStamp];
-      if (maxStamps > 0 && next.length > maxStamps) {
-        const excess = next.length - maxStamps;
+      const cap = maxStamps > 0 ? Math.min(maxStamps, HARD_CAP) : HARD_CAP;
+      if (next.length > cap) {
+        const excess = next.length - cap;
         const toBake = next.slice(0, excess);
-        if (mode !== 'follower' && decay <= 0) {
+        if (decay <= 0) {
           bakeStamps(toBake);
         }
         return next.slice(excess);
@@ -212,14 +190,10 @@ export default function NetArtCanvas({
     });
 
     if (onStamp) onStamp(id);
-  }, [images, rotation, scaleJitter, opacity, blendMode, stampSize, onStamp, mode, decay, bakeStamps]);
+  }, [images, rotation, scaleJitter, opacity, blendMode, stampSize, onStamp, decay, maxStamps, bakeStamps]);
 
   const handleMove = useCallback((clientX, clientY) => {
     if (onPadMove) onPadMove(clientX, clientY);
-    if (mode === 'follower') {
-      targetRef.current = { x: clientX, y: clientY };
-      return;
-    }
 
     const dx = clientX - lastPosRef.current.x;
     const dy = clientY - lastPosRef.current.y;
@@ -227,36 +201,9 @@ export default function NetArtCanvas({
 
     if (dist >= spacing) {
       lastPosRef.current = { x: clientX, y: clientY };
-
-      if (mode === 'scatter') {
-        const count = Math.max(1, stampsPerMove);
-        for (let i = 0; i < count; i++) {
-          const offsetX = clientX + (Math.random() * 2 - 1) * spacing * 1.5;
-          const offsetY = clientY + (Math.random() * 2 - 1) * spacing * 1.5;
-          createStamp(offsetX, offsetY);
-        }
-        // scatter historically had 2-4 stamps; ensure at least that feel when density=1
-        if (stampsPerMove === 1) {
-          // add one extra to keep scatter distinct from collage
-          const offsetX = clientX + (Math.random() * 2 - 1) * spacing * 1.5;
-          const offsetY = clientY + (Math.random() * 2 - 1) * spacing * 1.5;
-          createStamp(offsetX, offsetY);
-        }
-      } else {
-        // collage
-        if (stampsPerMove <= 1) {
-          createStamp(clientX, clientY);
-        } else {
-          for (let i = 0; i < stampsPerMove; i++) {
-            const jitter = spacing * 0.4;
-            const offsetX = clientX + (Math.random() * 2 - 1) * jitter;
-            const offsetY = clientY + (Math.random() * 2 - 1) * jitter;
-            createStamp(offsetX, offsetY);
-          }
-        }
-      }
+      createStamp(clientX, clientY);
     }
-  }, [mode, spacing, stampsPerMove, createStamp, onPadMove]);
+  }, [spacing, createStamp, onPadMove]);
 
   const onMouseMove = useCallback((e) => {
     handleMove(e.clientX, e.clientY);

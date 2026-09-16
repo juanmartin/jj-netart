@@ -16,14 +16,12 @@ const REPO_PRESETS_MAP = Object.fromEntries(
   Object.entries(repoPresetModules).map(([p, m]) => [p.split('/').pop().replace(/\.json$/, ''), m])
 );
 
-const MODES = ['collage', 'follower', 'scatter'];
 const BLEND_MODES = ['normal', 'difference', 'multiply', 'screen', 'overlay'];
 
 export default function App() {
   const [foregroundImages, setForegroundImages] = useState(DEFAULT_FOREGROUND_ASSETS);
   const [backgroundImages, setBackgroundImages] = useState(DEFAULT_BACKGROUND_ASSETS);
   const [bgIndex, setBgIndex] = useState(0);
-  const [mode, setMode] = useState('collage');
   const [blendMode, setBlendMode] = useState('normal');
   const [uiVisible, setUiVisible] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
@@ -40,7 +38,6 @@ export default function App() {
   // SETTINGS — wired to ControlPanel drawer + NetArtCanvas
   const [spacing, setSpacing] = useState(40);
   const [stampSize, setStampSize] = useState(120);
-  const [stampsPerMove, setStampsPerMove] = useState(1);
   const [rotation, setRotation] = useState(15);
   const [scaleJitter, setScaleJitter] = useState(0.3);
   const [opacity, setOpacity] = useState(0.9);
@@ -163,7 +160,7 @@ export default function App() {
   const handleApplyPreset = useCallback((preset) => {
     if (preset.spacing !== undefined) setSpacing(preset.spacing);
     if (preset.stampSize !== undefined) setStampSize(preset.stampSize);
-    if (preset.stampsPerMove !== undefined) setStampsPerMove(preset.stampsPerMove);
+    // legacy: stampsPerMove (density) removed — single stamp per trigger
     if (preset.rotation !== undefined) setRotation(preset.rotation);
     else if (preset.rotationJitter !== undefined) setRotation(preset.rotationJitter);
     if (preset.scaleJitter !== undefined) setScaleJitter(preset.scaleJitter);
@@ -188,16 +185,16 @@ export default function App() {
     if (preset.delayWet !== undefined) setDelayWet(preset.delayWet);
     if (preset.randomizeOnBgChange !== undefined) setRandomizeOnBgChange(preset.randomizeOnBgChange);
     if (preset.blendMode !== undefined) setBlendMode(preset.blendMode);
-    if (preset.mode !== undefined) setMode(preset.mode);
+    // legacy: mode (collage/follower/scatter) removed — collage only
   }, []);
 
   const getCurrentPresetData = useCallback(() => ({
-    spacing, stampSize, stampsPerMove, rotation, scaleJitter, opacity, decay, maxStamps,
+    spacing, stampSize, rotation, scaleJitter, opacity, decay, maxStamps,
     bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity,
     soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift,
     delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange,
-    blendMode, mode,
-  }), [spacing, stampSize, stampsPerMove, rotation, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode, mode]);
+    blendMode,
+  }), [spacing, stampSize, rotation, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode]);
 
   const handleSaveCustomPreset = useCallback((name) => {
     if (!name) return;
@@ -258,14 +255,28 @@ export default function App() {
     reader.readAsText(file);
   }, [handleApplyPreset]);
 
-  // Load custom presets and default on mount — migrate legacy rotationJitter key to rotation
+  // Load custom presets and default on mount — migrate legacy rotationJitter key to rotation,
+  // and clamp dangerous values to safe rails (unbounded DOM was hanging the app)
   useEffect(() => {
     const stored = loadCustomPresets();
     let migrated = false;
     Object.keys(stored).forEach((k) => {
-      if (stored[k].rotationJitter !== undefined && stored[k].rotation === undefined) {
-        stored[k].rotation = stored[k].rotationJitter;
-        delete stored[k].rotationJitter;
+      const p = stored[k];
+      if (p.rotationJitter !== undefined && p.rotation === undefined) {
+        p.rotation = p.rotationJitter;
+        delete p.rotationJitter;
+        migrated = true;
+      }
+      if (p.decay > 0 && (p.maxStamps === 0 || p.maxStamps > 250)) {
+        p.maxStamps = 250;
+        migrated = true;
+      }
+      if (p.decay > 2500) {
+        p.decay = 2500;
+        migrated = true;
+      }
+      if (p.stampSize > 600) {
+        p.stampSize = 600;
         migrated = true;
       }
     });
@@ -372,7 +383,6 @@ export default function App() {
           break;
         case 'r':
           e.preventDefault();
-          setMode(MODES[Math.floor(Math.random() * MODES.length)]);
           setBlendMode(BLEND_MODES[Math.floor(Math.random() * BLEND_MODES.length)]);
           break;
         default:
@@ -431,11 +441,9 @@ export default function App() {
       <NetArtCanvas
         key={clearKey}
         images={displayForegroundImages}
-        mode={mode}
         blendMode={blendMode}
         spacing={spacing}
         stampSize={stampSize}
-        stampsPerMove={stampsPerMove}
         rotation={rotation}
         scaleJitter={scaleJitter}
         opacity={opacity}
@@ -446,8 +454,6 @@ export default function App() {
       />
       <HeaderNav uiVisible={uiVisible} />
       <ControlPanel
-        mode={mode}
-        onModeChange={setMode}
         blendMode={blendMode}
         onBlendModeChange={setBlendMode}
         soundEnabled={soundEnabled}
@@ -462,8 +468,6 @@ export default function App() {
         onSpacingChange={setSpacing}
         stampSize={stampSize}
         onStampSizeChange={setStampSize}
-        stampsPerMove={stampsPerMove}
-        onStampsPerMoveChange={setStampsPerMove}
         rotation={rotation}
         onRotationChange={setRotation}
         scaleJitter={scaleJitter}

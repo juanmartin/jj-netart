@@ -5,7 +5,7 @@ const SHORTCUTS = [
   { key: 'C', desc: 'Clear canvas' },
   { key: 'S', desc: 'Save snapshot' },
   { key: 'Space', desc: 'Next background' },
-  { key: 'R', desc: 'Randomize mode & blend' },
+  { key: 'R', desc: 'Randomize blend' },
   { key: '?', desc: 'Toggle this panel' },
   { key: 'Esc', desc: 'Close panels' },
 ];
