@@ -113,7 +113,14 @@ export default function App() {
 
   const handleSwitchBackground = useCallback(() => {
     if (bgFixed) return;
-    setBgIndex(prev => (prev + 1) % backgroundImages.length);
+    setBgIndex(prev => {
+      if (backgroundImages.length <= 1) return prev;
+      let next;
+      do {
+        next = Math.floor(Math.random() * backgroundImages.length);
+      } while (next === prev);
+      return next;
+    });
   }, [backgroundImages.length, bgFixed]);
 
   // Auto-rotate background every bgAutoInterval seconds (0 = off, disabled when fixed)
