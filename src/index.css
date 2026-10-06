@@ -99,6 +99,18 @@ html, body {
   opacity: 1;
 }
 
+/* Portrait viewport: lay the frame out as a landscape box so
+   object-fit: cover barely crops, then rotate it to fill the screen.
+   (All bg sources are landscape; the inner img keeps Ken Burns.) */
+.background-layer.portrait .bg-image {
+  inset: auto;
+  width: 100vh;
+  height: 100vw;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
 .bg-image img {
   width: 100%;
   height: 100%;

@@ -42,7 +42,7 @@
 - Safe rails (hang prevention): `maxStamps <= 250`, `decay <= 2500`, `stampSize <= 600`. Enforced in repo presets AND by the load-time migration in `App.jsx`, which clamps localStorage customs (`maxStamps 0` with `decay>0` -> 250; pure-canvas `0` only stays when `decay==0`). Keep these rails when adding presets.
 
 ## Rendering & Perf Guardrails (do not regress)
-- `BackgroundLayer.jsx` mounts only current + previous image (cross-fade needs 2) — never all 47 decoded bitmaps (~400MB+). Keep it that way.
+- `BackgroundLayer.jsx` mounts only current + previous image (cross-fade needs 2) — never all 47 decoded bitmaps (~400MB+). Keep it that way. All bg sources are landscape; in portrait viewports the frame becomes a rotated landscape box (`.background-layer.portrait .bg-image`) so `cover` barely crops — tracked via `isPortraitView` + resize listener in `App.jsx`.
 - DOM stamps hard-capped at 400 (`HARD_CAP` in `NetArtCanvas.jsx`); `Cap` slider is `0-500`. `Cap 0` + `decay 0` = pure canvas (zero DOM, unlimited); overflow with `decay 0` bakes to canvas via cached `Image` objects (`imageCacheRef`); overflow while fading is dropped.
 - No `will-change` on stamps, no `fadeInStamp` grow animation (removed intentionally — stamps appear instantly at full size; `decay>0` uses `stampDecay` opacity fade only).
 - `rotation` is cumulative per stamp (`rotation * 0.08` added to a ref, `% 360`): positive = clockwise trail, negative = anticlockwise, 0 = straight. `scale` is exactly 1 when `scaleJitter` is 0.

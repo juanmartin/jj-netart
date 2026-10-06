@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function BackgroundLayer({ images, currentIndex, filter, kenburns, noiseOpacity = 0.035, fadeDuration = 1.2 }) {
+export default function BackgroundLayer({ images, currentIndex, filter, kenburns, noiseOpacity = 0.035, fadeDuration = 1.2, viewportPortrait = false }) {
   // Only mount current + previous (cross-fade needs 2) — mounting all
   // 47 decoded bitmaps was the main memory hog.
   const prevIndex = (currentIndex - 1 + images.length) % Math.max(1, images.length);
@@ -8,7 +8,7 @@ export default function BackgroundLayer({ images, currentIndex, filter, kenburns
     ? images.map((src, i) => ({ src, i }))
     : [{ src: images[prevIndex], i: prevIndex }, { src: images[currentIndex], i: currentIndex }];
   return (
-    <div className="background-layer">
+    <div className={`background-layer${viewportPortrait ? ' portrait' : ''}`}>
       {toRender.map(({ src, i }) => {
         const style = {};
         if (i === currentIndex && filter && filter !== 'none') style.filter = filter;

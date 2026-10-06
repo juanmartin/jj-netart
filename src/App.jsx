@@ -34,6 +34,7 @@ export default function App() {
   const [fgChangeOnClick, setFgChangeOnClick] = useState(false);
   const [fgIndex, setFgIndex] = useState(0);
   const [bgFadeDuration, setBgFadeDuration] = useState(1.2);
+  const [isPortraitView, setIsPortraitView] = useState(() => window.innerWidth < window.innerHeight);
   const [clearKey, setClearKey] = useState(0);
   // SETTINGS — wired to ControlPanel drawer + NetArtCanvas
   const [spacing, setSpacing] = useState(40);
@@ -129,6 +130,13 @@ export default function App() {
     const id = setInterval(handleSwitchBackground, bgAutoInterval * 1000);
     return () => clearInterval(id);
   }, [bgFixed, bgAutoInterval, backgroundImages.length, handleSwitchBackground]);
+
+  // Track viewport orientation for background presentation
+  useEffect(() => {
+    const onResize = () => setIsPortraitView(window.innerWidth < window.innerHeight);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const handleForegroundClick = useCallback((e) => {
     if (!fgChangeOnClick) return;
@@ -444,6 +452,7 @@ export default function App() {
         kenburns={bgKenburns && !bgFixed}
         noiseOpacity={noiseOpacity}
         fadeDuration={bgFadeDuration}
+        viewportPortrait={isPortraitView}
       />
       <NetArtCanvas
         key={clearKey}
