@@ -8,6 +8,7 @@ import ShortcutsPanel from './components/ShortcutsPanel.jsx';
 import HeaderNav from './components/HeaderNav.jsx';
 import { useAudioSynth } from './hooks/useAudioSynth.js';
 import { DEFAULT_FOREGROUND_ASSETS, DEFAULT_BACKGROUND_ASSETS } from './utils/assetLoader.js';
+import { SAMPLE_PACK_NAMES } from './utils/sampleLoader.js';
 import { loadCustomPresets, saveCustomPresets, getDefaultPresetName, setDefaultPresetName, downloadJson } from './utils/presetStorage.js';
 import defaultRepoPreset from './presets/default.json';
 
@@ -60,6 +61,21 @@ export default function App() {
   const [delayFeedback, setDelayFeedback] = useState(0.35);
   const [delayWet, setDelayWet] = useState(0.4);
   const [randomizeOnBgChange, setRandomizeOnBgChange] = useState(true);
+  // SOUND — synth drone + sampler chops run in parallel when both toggled on
+  const [synthEnabled, setSynthEnabled] = useState(true);
+  const [samplerEnabled, setSamplerEnabled] = useState(true);
+  const [samplerPack, setSamplerPack] = useState(SAMPLE_PACK_NAMES[0] || 'CHINO');
+  const [samplerVolume, setSamplerVolume] = useState(0.4);
+  const [samplerTune, setSamplerTune] = useState(0);
+  const [samplerPitchXLo, setSamplerPitchXLo] = useState(-3);
+  const [samplerPitchXHi, setSamplerPitchXHi] = useState(3);
+  const [samplerCutoff, setSamplerCutoff] = useState(7500);
+  const [samplerResonance, setSamplerResonance] = useState(0.8);
+  const [samplerAttack, setSamplerAttack] = useState(0.008);
+  const [samplerRelease, setSamplerRelease] = useState(0.35);
+  const [samplerCooldown, setSamplerCooldown] = useState(450);
+  const [samplerVoices, setSamplerVoices] = useState(3);
+  const [samplerPlayMode, setSamplerPlayMode] = useState('random');
 
   const containerRef = useRef(null);
   const toggleSound = useCallback(() => setSoundEnabled(prev => !prev), []);
@@ -73,6 +89,20 @@ export default function App() {
     delayFeedback,
     delayWet,
     soundEnabled,
+    synthEnabled,
+    samplerEnabled,
+    samplerPack,
+    samplerVolume,
+    samplerTune,
+    samplerPitchXLo,
+    samplerPitchXHi,
+    samplerCutoff,
+    samplerResonance,
+    samplerAttack,
+    samplerRelease,
+    samplerCooldown,
+    samplerVoices,
+    samplerPlayMode,
   });
 
   const handlePadMove = useCallback((x, y) => {
@@ -199,6 +229,30 @@ export default function App() {
     if (preset.delayFeedback !== undefined) setDelayFeedback(preset.delayFeedback);
     if (preset.delayWet !== undefined) setDelayWet(preset.delayWet);
     if (preset.randomizeOnBgChange !== undefined) setRandomizeOnBgChange(preset.randomizeOnBgChange);
+    if (preset.synthEnabled !== undefined) setSynthEnabled(preset.synthEnabled);
+    if (preset.samplerEnabled !== undefined) setSamplerEnabled(preset.samplerEnabled);
+    // legacy: exclusive engine -> parallel toggles
+    else if (preset.soundEngine !== undefined) {
+      setSynthEnabled(preset.soundEngine !== 'sampler');
+      setSamplerEnabled(preset.soundEngine !== 'synth');
+    }
+    if (preset.samplerPack !== undefined) setSamplerPack(preset.samplerPack);
+    if (preset.samplerVolume !== undefined) setSamplerVolume(preset.samplerVolume);
+    if (preset.samplerTune !== undefined) setSamplerTune(preset.samplerTune);
+    if (preset.samplerPitchXLo !== undefined) setSamplerPitchXLo(preset.samplerPitchXLo);
+    if (preset.samplerPitchXHi !== undefined) setSamplerPitchXHi(preset.samplerPitchXHi);
+    // legacy: symmetric span -> lo/hi range
+    else if (preset.samplerPitchFromX !== undefined) {
+      setSamplerPitchXLo(-preset.samplerPitchFromX / 2);
+      setSamplerPitchXHi(preset.samplerPitchFromX / 2);
+    }
+    if (preset.samplerCutoff !== undefined) setSamplerCutoff(preset.samplerCutoff);
+    if (preset.samplerResonance !== undefined) setSamplerResonance(preset.samplerResonance);
+    if (preset.samplerAttack !== undefined) setSamplerAttack(preset.samplerAttack);
+    if (preset.samplerRelease !== undefined) setSamplerRelease(preset.samplerRelease);
+    if (preset.samplerCooldown !== undefined) setSamplerCooldown(preset.samplerCooldown);
+    if (preset.samplerVoices !== undefined) setSamplerVoices(preset.samplerVoices);
+    if (preset.samplerPlayMode !== undefined) setSamplerPlayMode(preset.samplerPlayMode);
     if (preset.blendMode !== undefined) setBlendMode(preset.blendMode);
     // legacy: mode (collage/follower/scatter) removed — collage only
   }, []);
@@ -208,8 +262,11 @@ export default function App() {
     bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity,
     soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift,
     delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange,
+    synthEnabled, samplerEnabled, samplerPack, samplerVolume, samplerTune, samplerPitchXLo, samplerPitchXHi,
+    samplerCutoff, samplerResonance, samplerAttack, samplerRelease,
+    samplerCooldown, samplerVoices, samplerPlayMode,
     blendMode,
-  }), [spacing, stampSize, rotation, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode]);
+  }), [spacing, stampSize, rotation, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, synthEnabled, samplerEnabled, samplerPack, samplerVolume, samplerTune, samplerPitchXLo, samplerPitchXHi, samplerCutoff, samplerResonance, samplerAttack, samplerRelease, samplerCooldown, samplerVoices, samplerPlayMode, blendMode]);
 
   const handleSaveCustomPreset = useCallback((name) => {
     if (!name) return;
@@ -537,6 +594,35 @@ export default function App() {
         randomizeOnBgChange={randomizeOnBgChange}
         onRandomizeOnBgChange={setRandomizeOnBgChange}
         onPreviewSound={handlePreviewSound}
+        synthEnabled={synthEnabled}
+        onSynthEnabledChange={setSynthEnabled}
+        samplerEnabled={samplerEnabled}
+        onSamplerEnabledChange={setSamplerEnabled}
+        samplerPacks={SAMPLE_PACK_NAMES}
+        samplerPack={samplerPack}
+        onSamplerPackChange={setSamplerPack}
+        samplerVolume={samplerVolume}
+        onSamplerVolumeChange={setSamplerVolume}
+        samplerTune={samplerTune}
+        onSamplerTuneChange={setSamplerTune}
+        samplerPitchXLo={samplerPitchXLo}
+        onSamplerPitchXLoChange={setSamplerPitchXLo}
+        samplerPitchXHi={samplerPitchXHi}
+        onSamplerPitchXHiChange={setSamplerPitchXHi}
+        samplerCutoff={samplerCutoff}
+        onSamplerCutoffChange={setSamplerCutoff}
+        samplerResonance={samplerResonance}
+        onSamplerResonanceChange={setSamplerResonance}
+        samplerAttack={samplerAttack}
+        onSamplerAttackChange={setSamplerAttack}
+        samplerRelease={samplerRelease}
+        onSamplerReleaseChange={setSamplerRelease}
+        samplerCooldown={samplerCooldown}
+        onSamplerCooldownChange={setSamplerCooldown}
+        samplerVoices={samplerVoices}
+        onSamplerVoicesChange={setSamplerVoices}
+        samplerPlayMode={samplerPlayMode}
+        onSamplerPlayModeChange={setSamplerPlayMode}
         helpOpen={helpOpen}
         onToggleHelp={handleToggleHelp}
       />

@@ -4,8 +4,8 @@
 - Vite 5 + React 18 (JSX, `type: module`). No TypeScript build, no tests, no lint/format, no CI.
 - Entrypoint: `src/main.jsx` -> `src/App.jsx`. Single global stylesheet `src/index.css` (design tokens in `:root`).
 - Components: `src/components/{NetArtCanvas,BackgroundLayer,ControlPanel,AssetManagerModal,HeaderNav,ShortcutsPanel}.jsx`
-- Hooks: `src/hooks/useAudioSynth.js` (pad synth on mouse move + persistent delay graph; `playStampSound` kept for preview only).
-- Utils: `src/utils/{assetLoader.js,presetStorage.js}` (localStorage presets + JSON download). Repo presets: `src/presets/*.json` (bundled via `import.meta.glob`, file name = preset name; `default.json` auto-applies on load).
+- Hooks: `src/hooks/useAudioSynth.js` (pad synth + vocal-chop sampler in parallel, one shared delay graph; `playStampSound` previews enabled voices).
+- Utils: `src/utils/{assetLoader.js,sampleLoader.js,presetStorage.js}` (localStorage presets + JSON download). Repo presets: `src/presets/*.json` (bundled via `import.meta.glob`, file name = preset name; `default.json` auto-applies on load).
 
 ## Commands
 - `npm run dev` — Vite dev server on `http://localhost:3000` (`host: true`, `allowedHosts: ['jm2.tail59251.ts.net']` — Tailscale). Always use this port/host.
@@ -20,6 +20,7 @@
   - `public/assets/foreground/*.{jpg,jpeg,png,gif,svg,webp}`
   - `public/assets/background/*.{jpg,jpeg,png,gif,svg,webp}`
 - Adding a file to those dirs is enough — no manual import. Empty dirs fall back to `generateProceduralAsset()`.
+- Vocal-chop sample packs auto-discovered via `import.meta.glob` in `src/utils/sampleLoader.js`: each folder directly under `public/assets/samples/` is one pack (folder name = language label, e.g. `CHINO`, `SPANISH`), `*.{wav,mp3,ogg,aif,aiff}` inside. Same `?url` hashing into `dist/assets/` applies (this is why `copyPublicDir: false` is safe for samples too). Known exception to the no-spaces rule: the ttsmaker wavs keep upstream names with spaces and bundle fine — rename to dash-names only if a static host ever chokes on the hashed URLs.
 - Web-ready convention (see optimization history): all `.webp` — foreground max 800px q82, background max 1920px q80, sRGB, stripped metadata (`magick SRC -auto-orient -colorspace sRGB -strip -resize "800x800>" -quality 82 ...`). HEIC/PDF are NOT web-readable — convert before adding.
 - Filenames: no spaces or parens (breaks Vite hashed URLs on static hosts) — e.g. `IMG_8788 2.HEIC` -> `IMG_8788-2.webp`.
 - Runtime additions via drag-and-drop: global `window` drop in `src/App.jsx` adds to foreground; modal drop respects `targetPool` toggle.
@@ -29,15 +30,15 @@
   - Canvas: `foregroundImages`, `fgIndex` (+`fgChangeOnClick`), `bgIndex`, `backgroundImages`, `blendMode`, `clearKey` (`NetArtCanvas` is keyed by `clearKey` for reset).
   - Stamps: `spacing`, `stampSize`, `rotation` (cumulative, bipolar -180..180), `scaleJitter`, `opacity`, `decay`, `maxStamps`.
   - Background: `bgFilter`, `bgKenburns` (disabled when `bgFixed`), `bgAutoInterval` (s, 0=off), `bgFixed`, `bgFadeDuration` (s), `noiseOpacity`.
-  - Sound: `soundEnabled` (owned by App, passed into hook), `soundWaveform/Volume/Duration/PitchShift`, `delayEnabled/Time/Feedback/Wet`, `randomizeOnBgChange`.
+  - Sound: `soundEnabled` (master, owned by App, passed into hook) + parallel voice toggles `synthEnabled`/`samplerEnabled`; synth `soundWaveform/Volume/Duration/PitchShift`, sampler `samplerPack/Volume/Tune/PitchXLo/PitchXHi/Cutoff/Resonance/Attack/Release/Cooldown/Voices/PlayMode`; shared `delayEnabled/Time/Feedback/Wet`, `randomizeOnBgChange` (synth params only).
   - Presets: `customPresets` (localStorage), `defaultPresetName`, `presetAutoInterval` (minutes, global — NOT part of preset data, default 1).
   - UI: `uiVisible` (default false), `assetsOpen`, `helpOpen`, `captureButtonVisible` (default true).
 - Settings drawer (`ControlPanel.jsx`) is fully wired — sliders/toggles flow through setters + `handleApplyPreset` in `App.jsx`.
-- Collage only (follower/scatter/mode removed — see history); one stamp per trigger gated by `spacing`. Legacy preset keys (`mode`, `stampsPerMove`, `rotationJitter`) are accepted on load and ignored/migrated, never saved.
+- Collage only (follower/scatter/mode removed — see history); one stamp per trigger gated by `spacing`. Legacy preset keys (`mode`, `stampsPerMove`, `rotationJitter`, `soundEngine`, `samplerPitchFromX`) are accepted on load and ignored/migrated, never saved.
 - `fgChangeOnClick` shows a single fixed image (`foregroundImages[fgIndex]`) that advances to a RANDOM different image per canvas click (UI clicks excluded).
 
 ## Preset System
-- JSON shape: 25 fields — `spacing, stampSize, rotation, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode`. Built via `getCurrentPresetData()` — add new settings there AND in `handleApplyPreset` AND in `src/presets/default.json` or they won't persist.
+- JSON shape: 25 fields — `spacing, stampSize, rotation, scaleJitter, opacity, decay, maxStamps, bgFilter, bgKenburns, bgAutoInterval, bgFixed, fgChangeOnClick, bgFadeDuration, noiseOpacity, soundEnabled, soundWaveform, soundVolume, soundDuration, soundPitchShift, delayEnabled, delayTime, delayFeedback, delayWet, randomizeOnBgChange, blendMode` plus 14 sampler fields — `synthEnabled, samplerEnabled, samplerPack, samplerVolume, samplerTune, samplerPitchXLo, samplerPitchXHi, samplerCutoff, samplerResonance, samplerAttack, samplerRelease, samplerCooldown, samplerVoices, samplerPlayMode` (39 total). Built via `getCurrentPresetData()` — add new settings there AND in `handleApplyPreset` AND in `src/presets/default.json` or they won't persist.
 - Repo presets (`src/presets/*.json`, committed): `default.json` auto-applies when no localStorage default is set; all files appear as buttons via glob. Personal/quick presets live in localStorage (`SAVE` + `SET DEFAULT`); `EXPORT` downloads `name.json` — commit it under `src/presets/` to share.
 - Safe rails (hang prevention): `maxStamps <= 250`, `decay <= 2500`, `stampSize <= 600`. Enforced in repo presets AND by the load-time migration in `App.jsx`, which clamps localStorage customs (`maxStamps 0` with `decay>0` -> 250; pure-canvas `0` only stays when `decay==0`). Keep these rails when adding presets.
 
@@ -50,6 +51,7 @@
 ## Audio (`useAudioSynth.js`)
 - `soundEnabled` is controlled by App state (hook holds no toggle state; it takes it as config).
 - Pad synth drives sound from mouse position, not per stamp: `updatePad(x, y)` (throttled via rAF) maps X -> frequency (110-610Hz + pitchShift), Y -> lowpass cutoff; 0.35s idle -> 0.6s release. `onStamp` in App is a no-op; `playStampSound` is only for the preview button.
+- Sampler runs in PARALLEL with the synth (independent `synthEnabled`/`samplerEnabled` toggles): mousemove fires vocal chops throttled by `samplerCooldown` (default 450ms), X -> pitch (`tune + lo..hi` range) + pan, Y -> lowpass brightness (500Hz..`cutoff`); attack/release envelope per chop, `samplerVoices` polyphony with oldest-voice choke, `random`/`sequence` play order; packs from `sampleLoader.js`, lazy-decoded + cached, background-preloaded once audio unlocks. Disabling a voice stops it (`stopPad` / choke-all); they share the ONE delay graph below.
 - Delay uses ONE persistent graph (`DelayNode` + feedback/wet/dry, created once) — never per-stamp nodes. Feedback clamped to 0.99; `delayTime` max 1.8s needs `createDelay(2.0)`.
 - Requires user gesture: `initAudio` on first window click in `App.jsx`; nodes disconnect on `osc.onended`.
 
@@ -58,7 +60,6 @@
 - Capture FAB (`.capture-fab` in `index.css`, 64px circle bottom-center): mirrors `CAPTURA`, stays visible when UI is hidden. If it "disappears", check the CSS block survived — it once landed in the same commit as a rollback.
 - Snapshot: `html2canvas` at `scale: 1`, `backgroundColor: '#09090b'`, `useCORS: true` — see `handleSnapshot` in `src/App.jsx`.
 - `bgFixed` ON stops everything background: auto-rotate, manual BG/space, AND Ken Burns (`kenburns && !bgFixed`). `randomizeOnBgChange` only randomizes sound params when `bgIndex` changes (skips initial mount).
-
 ## Pitfalls (learned the hard way)
 - Never `Math.random`-name a local the same as a prop in one scope — a `const rotation` inside `createStamp` shadowed the prop and threw TDZ `ReferenceError` on every stamp (build still passed; only sound worked because `onPadMove` runs first).
 - Never render all background `<img>`s or uncap DOM stamps — the app hangs after minutes, not seconds. Keep the 2-image bg render and `HARD_CAP`.

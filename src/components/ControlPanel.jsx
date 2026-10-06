@@ -122,6 +122,36 @@ export default function ControlPanel({
   randomizeOnBgChange,
   onRandomizeOnBgChange,
   onPreviewSound,
+  // Sound voices (parallel toggles)
+  synthEnabled,
+  onSynthEnabledChange,
+  samplerEnabled,
+  onSamplerEnabledChange,
+  samplerPacks = [],
+  samplerPack,
+  onSamplerPackChange,
+  samplerVolume,
+  onSamplerVolumeChange,
+  samplerTune,
+  onSamplerTuneChange,
+  samplerPitchXLo,
+  onSamplerPitchXLoChange,
+  samplerPitchXHi,
+  onSamplerPitchXHiChange,
+  samplerCutoff,
+  onSamplerCutoffChange,
+  samplerResonance,
+  onSamplerResonanceChange,
+  samplerAttack,
+  onSamplerAttackChange,
+  samplerRelease,
+  onSamplerReleaseChange,
+  samplerCooldown,
+  onSamplerCooldownChange,
+  samplerVoices,
+  onSamplerVoicesChange,
+  samplerPlayMode,
+  onSamplerPlayModeChange,
   // Help
   helpOpen,
   onToggleHelp,
@@ -287,7 +317,7 @@ export default function ControlPanel({
             </div>
           </div>
 
-          <div className="settings-section-title">Sound Synth</div>
+          <div className="settings-section-title">Sound — {synthEnabled && samplerEnabled ? 'Synth + Sampler' : synthEnabled ? 'Synth' : samplerEnabled ? 'Sampler' : 'Muted'}</div>
           <div className="settings-grid">
             <div className="setting-row settings-row-full">
               <div className="setting-label">
@@ -301,6 +331,32 @@ export default function ControlPanel({
                 {soundEnabled ? 'SOUND ON' : 'SOUND OFF'}
               </button>
             </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span>Synth</span>
+                <span className="setting-value">{synthEnabled ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${synthEnabled ? ' active' : ''}`}
+                onClick={() => onSynthEnabledChange && onSynthEnabledChange(!synthEnabled)}
+              >
+                {synthEnabled ? 'SYNTH ON' : 'SYNTH OFF'}
+              </button>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span>Sampler</span>
+                <span className="setting-value">{samplerEnabled ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${samplerEnabled ? ' active' : ''}`}
+                onClick={() => onSamplerEnabledChange && onSamplerEnabledChange(!samplerEnabled)}
+              >
+                {samplerEnabled ? 'SAMPLER ON' : 'SAMPLER OFF'}
+              </button>
+            </div>
+            {synthEnabled && (
+            <>
             <div className="setting-row settings-row-full">
               <div className="setting-label"><span>Waveform</span><span className="setting-value">{soundWaveform}</span></div>
               <div className="waveform-grid">
@@ -336,6 +392,113 @@ export default function ControlPanel({
               onChange={onSoundPitchShiftChange}
               unit=" st"
             />
+            </>
+            )}
+            {samplerEnabled && (
+            <>
+            <div className="setting-row">
+              <div className="setting-label"><span>Language Pack</span></div>
+              <select
+                className="setting-select"
+                value={samplerPack}
+                onChange={(e) => onSamplerPackChange && onSamplerPackChange(e.target.value)}
+              >
+                {samplerPacks.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label"><span>Play Order</span><span className="setting-value">{samplerPlayMode}</span></div>
+              <div className="waveform-grid">
+                {['random', 'sequence'].map(m => (
+                  <button
+                    key={m}
+                    className={`preset-btn${samplerPlayMode === m ? ' active' : ''}`}
+                    onClick={() => onSamplerPlayModeChange && onSamplerPlayModeChange(m)}
+                  >
+                    {m === 'random' ? 'RND' : 'SEQ'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Slider
+              label="Volume"
+              value={samplerVolume}
+              min={0.01} max={0.9} step={0.01}
+              onChange={onSamplerVolumeChange}
+              unit=""
+            />
+            <Slider
+              label="Tune"
+              value={samplerTune}
+              min={-12} max={12} step={1}
+              onChange={onSamplerTuneChange}
+              unit=" st"
+            />
+            <Slider
+              label="Pitch X Lo"
+              value={samplerPitchXLo}
+              min={-12} max={12} step={1}
+              onChange={onSamplerPitchXLoChange}
+              unit=" st"
+            />
+            <Slider
+              label="Pitch X Hi"
+              value={samplerPitchXHi}
+              min={-12} max={12} step={1}
+              onChange={onSamplerPitchXHiChange}
+              unit=" st"
+            />
+            <Slider
+              label="Cutoff"
+              value={samplerCutoff}
+              min={800} max={12000} step={100}
+              onChange={onSamplerCutoffChange}
+              unit="Hz"
+            />
+            <Slider
+              label="Resonance"
+              value={samplerResonance}
+              min={0} max={10} step={0.5}
+              onChange={onSamplerResonanceChange}
+              unit=""
+            />
+            <Slider
+              label="Attack"
+              value={samplerAttack}
+              min={0.003} max={0.15} step={0.001}
+              onChange={onSamplerAttackChange}
+              unit="s"
+            />
+            <Slider
+              label="Release"
+              value={samplerRelease}
+              min={0.05} max={1.2} step={0.05}
+              onChange={onSamplerReleaseChange}
+              unit="s"
+            />
+            <Slider
+              label="Cooldown"
+              value={samplerCooldown}
+              min={120} max={1200} step={10}
+              onChange={onSamplerCooldownChange}
+              unit="ms"
+            />
+            <Slider
+              label="Voices"
+              value={samplerVoices}
+              min={1} max={6} step={1}
+              onChange={onSamplerVoicesChange}
+              unit=""
+            />
+            <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span style={{ opacity: 0.6, fontSize: 11 }}>X → pitch (Lo left, Hi right) &amp; pan · Y → brightness · chops throttled by Cooldown</span>
+              </div>
+            </div>
+            </>
+            )}
             <div className="setting-row settings-row-full">
               <div className="setting-label">
                 <span>Delay</span>

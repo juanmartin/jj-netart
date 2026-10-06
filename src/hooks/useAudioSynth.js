@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
+import { SAMPLE_PACKS } from '../utils/sampleLoader.js';
 
 export function useAudioSynth(config = {}) {
   const {
@@ -11,6 +12,21 @@ export function useAudioSynth(config = {}) {
     delayFeedback = 0.35,
     delayWet = 0.4,
     soundEnabled = true,
+    // Parallel voices: synth drone and sampler chops can run together
+    synthEnabled = true,
+    samplerEnabled = true,
+    samplerPack = 'CHINO',
+    samplerVolume = 0.4,
+    samplerTune = 0,
+    samplerPitchXLo = -3,
+    samplerPitchXHi = 3,
+    samplerCutoff = 7500,
+    samplerResonance = 0.8,
+    samplerAttack = 0.008,
+    samplerRelease = 0.35,
+    samplerCooldown = 450,
+    samplerVoices = 3,
+    samplerPlayMode = 'random',
   } = config;
 
   const audioCtxRef = useRef(null);
@@ -84,8 +100,147 @@ export function useAudioSynth(config = {}) {
     dryGainRef.current.gain.setValueAtTime(delayEnabled ? 1 - delayWet : 1, t);
   }, [delayTime, delayFeedback, delayWet, delayEnabled]);
 
+  // ---- Sampler: vocal-chop playback through the same delay graph ----
+  const sampleCacheRef = useRef(new Map()); // url -> AudioBuffer
+  const activeVoicesRef = useRef([]); // { source, gain }
+  const lastChopRef = useRef(0);
+  const seqIndexRef = useRef(0);
+
+  const ensureSampleBuffer = useCallback(async (url) => {
+    const cache = sampleCacheRef.current;
+    if (cache.has(url)) return cache.get(url);
+    const ctx = audioCtxRef.current;
+    if (!ctx) return null;
+    try {
+      const res = await fetch(url);
+      const arr = await res.arrayBuffer();
+      const buf = await ctx.decodeAudioData(arr);
+      cache.set(url, buf);
+      return buf;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Background-preload the active pack once audio is unlocked (keeps first
+  // chops snappy; on-demand fetch covers anything not yet cached).
+  useEffect(() => {
+    if (!audioCtxRef.current) return;
+    const urls = SAMPLE_PACKS[samplerPack] || [];
+    urls.forEach((u) => {
+      if (!sampleCacheRef.current.has(u)) ensureSampleBuffer(u);
+    });
+  }, [samplerPack, ensureSampleBuffer]);
+
+  const pickSampleUrl = useCallback(() => {
+    const urls = SAMPLE_PACKS[samplerPack] || [];
+    if (urls.length === 0) return null;
+    if (samplerPlayMode === 'sequence') {
+      const u = urls[seqIndexRef.current % urls.length];
+      seqIndexRef.current = (seqIndexRef.current + 1) % urls.length;
+      return u;
+    }
+    return urls[Math.floor(Math.random() * urls.length)];
+  }, [samplerPack, samplerPlayMode]);
+
+  const stopAllVoices = useCallback(() => {
+    const voices = activeVoicesRef.current.splice(0);
+    voices.forEach(({ source, gain }) => {
+      try { source.stop(); } catch {}
+      try { source.disconnect(); } catch {}
+      try { gain.disconnect(); } catch {}
+    });
+  }, []);
+
+  const triggerChop = useCallback(async (x, y, bypassCooldown = false) => {
+    if (!soundEnabled) return;
+    const now = performance.now();
+    if (!bypassCooldown && now - lastChopRef.current < samplerCooldown) return;
+    lastChopRef.current = now;
+    try {
+      initAudio();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      ensureDelayGraph();
+      const url = pickSampleUrl();
+      if (!url) return;
+      const buf = await ensureSampleBuffer(url);
+      if (!buf) return;
+      // Opportunistic background preload of the rest of the pack (ctx exists here)
+      (SAMPLE_PACKS[samplerPack] || []).forEach((u) => {
+        if (!sampleCacheRef.current.has(u)) ensureSampleBuffer(u);
+      });
+      // Voice choke: stop oldest when at max polyphony
+      while (activeVoicesRef.current.length >= Math.max(1, samplerVoices)) {
+        const old = activeVoicesRef.current.shift();
+        if (!old) break;
+        try { old.source.stop(); } catch {}
+        try { old.source.disconnect(); } catch {}
+        try { old.gain.disconnect(); } catch {}
+      }
+      const w = window.innerWidth || 1200;
+      const h = window.innerHeight || 800;
+      const normX = Math.max(0, Math.min(1, x / w));
+      const normY = Math.max(0, Math.min(1, y / h));
+      // X -> pitch (left edge = tune+lo, right edge = tune+hi; lo>hi reverses),
+      // Y -> brightness
+      const semi = samplerTune + (samplerPitchXLo + normX * (samplerPitchXHi - samplerPitchXLo));
+      const rate = Math.max(0.25, Math.min(4, Math.pow(2, semi / 12)));
+      const cutoffEff = Math.max(120, Math.min(16000,
+        500 + (1 - normY) * Math.max(100, samplerCutoff - 500)));
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = rate;
+      const filt = ctx.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = cutoffEff;
+      filt.Q.value = samplerResonance;
+      const g = ctx.createGain();
+      const t = ctx.currentTime;
+      const dur = buf.duration / rate;
+      const atk = Math.max(0.003, Math.min(0.5, samplerAttack));
+      const rel = Math.max(0.05, Math.min(1.5, samplerRelease));
+      const peak = Math.max(0.001, samplerVolume);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(peak, t + Math.min(atk, dur * 0.5));
+      const relStart = Math.max(t + atk, t + dur - rel);
+      g.gain.setValueAtTime(peak, relStart);
+      g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.05);
+      let pan = null;
+      try {
+        pan = ctx.createStereoPanner();
+        pan.pan.value = Math.max(-0.8, Math.min(0.8, (normX - 0.5) * 1.2));
+      } catch {}
+      src.connect(filt);
+      filt.connect(g);
+      const dest = inputGainRef.current || ctx.destination;
+      if (pan) { g.connect(pan); pan.connect(dest); }
+      else { g.connect(dest); }
+      const voice = { source: src, gain: g };
+      activeVoicesRef.current.push(voice);
+      src.onended = () => {
+        try { src.disconnect(); } catch {}
+        try { filt.disconnect(); } catch {}
+        try { g.disconnect(); } catch {}
+        try { pan && pan.disconnect(); } catch {}
+        const i = activeVoicesRef.current.indexOf(voice);
+        if (i >= 0) activeVoicesRef.current.splice(i, 1);
+      };
+      src.start(t, 0, dur + 0.1);
+    } catch {
+      // Audio playback quiet fallback
+    }
+  }, [soundEnabled, samplerCooldown, samplerTune, samplerPitchXLo, samplerPitchXHi, samplerCutoff,
+    samplerResonance, samplerAttack, samplerRelease, samplerVolume, samplerVoices,
+    initAudio, ensureDelayGraph, ensureSampleBuffer, pickSampleUrl]);
+
   const playStampSound = useCallback((index = 0) => {
     if (!soundEnabled) return;
+    if (samplerEnabled) {
+      // Preview: one chop from screen center, ignoring the cooldown
+      triggerChop((window.innerWidth || 1200) / 2, (window.innerHeight || 800) / 2, true);
+    }
+    if (!synthEnabled) return;
     try {
       initAudio();
       const ctx = audioCtxRef.current;
@@ -123,7 +278,8 @@ export function useAudioSynth(config = {}) {
     } catch (err) {
       // Audio playback quiet fallback
     }
-  }, [soundEnabled, initAudio, ensureDelayGraph, waveform, volume, duration, pitchShift]);
+  }, [soundEnabled, initAudio, ensureDelayGraph, waveform, volume, duration, pitchShift,
+    synthEnabled, samplerEnabled, triggerChop]);
 
   const ensurePad = useCallback(() => {
     if (!soundEnabled) return null;
@@ -185,6 +341,11 @@ export function useAudioSynth(config = {}) {
     if (!soundEnabled) return;
     initAudio();
     if (!audioCtxRef.current) return;
+    if (samplerEnabled) {
+      // Sampler: discrete vocal chops throttled by the cooldown, not a drone
+      triggerChop(x, y);
+    }
+    if (!synthEnabled) return;
     // throttle via rAF
     pendingPadRef.current = { x, y };
     if (padRafRef.current) return;
@@ -216,7 +377,7 @@ export function useAudioSynth(config = {}) {
         } catch {}
       }, 350);
     });
-  }, [soundEnabled, initAudio, doPadUpdate]);
+  }, [soundEnabled, initAudio, doPadUpdate, synthEnabled, samplerEnabled, triggerChop]);
 
   const stopPad = useCallback(() => {
     if (padTimeoutRef.current) clearTimeout(padTimeoutRef.current);
@@ -241,8 +402,9 @@ export function useAudioSynth(config = {}) {
   }, []);
 
   useEffect(() => {
-    if (!soundEnabled) stopPad();
-  }, [soundEnabled, stopPad]);
+    if (!soundEnabled || !synthEnabled) stopPad();
+    if (!soundEnabled || !samplerEnabled) stopAllVoices();
+  }, [soundEnabled, synthEnabled, samplerEnabled, stopPad, stopAllVoices]);
 
   useEffect(() => {
     return () => {
@@ -255,5 +417,5 @@ export function useAudioSynth(config = {}) {
     };
   }, []);
 
-  return { playStampSound, initAudio, updatePad, stopPad };
+  return { playStampSound, initAudio, updatePad, stopPad, triggerChop };
 }
