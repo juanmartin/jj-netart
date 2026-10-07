@@ -351,6 +351,28 @@ export default function App() {
         p.stampSize = 600;
         migrated = true;
       }
+      if (p.opacity !== undefined && p.opacity !== 1) {
+        p.opacity = 1;
+        migrated = true;
+      }
+      // engine exclusivity (one or the other, never both): delay is only
+      // used as tiebreak for ambiguous customs; repo presets carry an
+      // explicit per-preset choice
+      if ((p.synthEnabled === undefined && p.samplerEnabled === undefined) || (p.synthEnabled && p.samplerEnabled)) {
+        if (p.delayEnabled) {
+          p.synthEnabled = true;
+          p.samplerEnabled = false;
+        } else {
+          p.synthEnabled = false;
+          p.samplerEnabled = true;
+        }
+        migrated = true;
+      }
+      if (p.delayWet !== 0.2 || p.delayFeedback !== 0.15) {
+        p.delayWet = 0.2;
+        p.delayFeedback = 0.15;
+        migrated = true;
+      }
     });
     if (migrated) saveCustomPresets(stored);
     setCustomPresets(stored);

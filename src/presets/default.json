@@ -20,8 +20,10 @@
   "soundPitchShift": 3,
   "delayEnabled": true,
   "delayTime": 0.46,
-  "delayFeedback": 0.55,
-  "delayWet": 0.4,
+  "delayFeedback": 0.15,
+  "delayWet": 0.2,
+  "synthEnabled": false,
+  "samplerEnabled": true,
   "randomizeOnBgChange": false,
   "blendMode": "normal"
 }

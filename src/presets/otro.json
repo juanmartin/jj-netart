@@ -3,7 +3,7 @@
   "stampSize": 600,
   "rotation": 0,
   "scaleJitter": 0,
-  "opacity": 0.4,
+  "opacity": 1,
   "decay": 2100,
   "maxStamps": 250,
   "bgFilter": "none",
@@ -20,8 +20,10 @@
   "soundPitchShift": 3,
   "delayEnabled": true,
   "delayTime": 0.46,
-  "delayFeedback": 0.55,
-  "delayWet": 0.4,
+  "delayFeedback": 0.15,
+  "delayWet": 0.2,
+  "synthEnabled": true,
+  "samplerEnabled": false,
   "randomizeOnBgChange": false,
   "blendMode": "normal"
 }
