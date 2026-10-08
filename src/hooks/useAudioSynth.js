@@ -101,36 +101,60 @@ export function useAudioSynth(config = {}) {
   }, [delayTime, delayFeedback, delayWet, delayEnabled]);
 
   // ---- Sampler: vocal-chop playback through the same delay graph ----
-  const sampleCacheRef = useRef(new Map()); // url -> AudioBuffer
+  const MAX_CACHED_SAMPLES = 25;
+  const sampleCacheRef = useRef(new Map()); // url -> AudioBuffer (LRU: re-set on hit)
+  const sampleInflightRef = useRef(new Map()); // url -> Promise<AudioBuffer|null>
   const activeVoicesRef = useRef([]); // { source, gain }
   const lastChopRef = useRef(0);
   const seqIndexRef = useRef(0);
 
-  const ensureSampleBuffer = useCallback(async (url) => {
+  const ensureSampleBuffer = useCallback((url) => {
     const cache = sampleCacheRef.current;
-    if (cache.has(url)) return cache.get(url);
-    const ctx = audioCtxRef.current;
-    if (!ctx) return null;
-    try {
-      const res = await fetch(url);
-      const arr = await res.arrayBuffer();
-      const buf = await ctx.decodeAudioData(arr);
+    if (cache.has(url)) {
+      // LRU touch: re-insert to mark as most-recently-used
+      const buf = cache.get(url);
+      cache.delete(url);
       cache.set(url, buf);
-      return buf;
-    } catch {
-      return null;
+      return Promise.resolve(buf);
     }
+    const inflight = sampleInflightRef.current;
+    if (inflight.has(url)) return inflight.get(url);
+    const ctx = audioCtxRef.current;
+    if (!ctx) return Promise.resolve(null);
+    const p = (async () => {
+      try {
+        const res = await fetch(url);
+        const arr = await res.arrayBuffer();
+        const buf = await ctx.decodeAudioData(arr);
+        cache.set(url, buf);
+        while (cache.size > MAX_CACHED_SAMPLES) {
+          cache.delete(cache.keys().next().value);
+        }
+        return buf;
+      } catch {
+        return null;
+      } finally {
+        sampleInflightRef.current.delete(url);
+      }
+    })();
+    inflight.set(url, p);
+    return p;
   }, []);
 
-  // Background-preload the active pack once audio is unlocked (keeps first
-  // chops snappy; on-demand fetch covers anything not yet cached).
-  useEffect(() => {
+  // Preload the head of the active pack once audio is unlocked (keeps first
+  // chops snappy, covers sequence mode from the start). The rest decodes
+  // on demand into the LRU cache — never the whole pack at once.
+  const preloadPack = useCallback((pack) => {
     if (!audioCtxRef.current) return;
-    const urls = SAMPLE_PACKS[samplerPack] || [];
-    urls.forEach((u) => {
-      if (!sampleCacheRef.current.has(u)) ensureSampleBuffer(u);
+    const urls = SAMPLE_PACKS[pack] || [];
+    urls.slice(0, 10).forEach((u) => {
+      ensureSampleBuffer(u);
     });
-  }, [samplerPack, ensureSampleBuffer]);
+  }, [ensureSampleBuffer]);
+
+  useEffect(() => {
+    preloadPack(samplerPack);
+  }, [samplerPack, preloadPack]);
 
   const pickSampleUrl = useCallback(() => {
     const urls = SAMPLE_PACKS[samplerPack] || [];
@@ -166,10 +190,6 @@ export function useAudioSynth(config = {}) {
       if (!url) return;
       const buf = await ensureSampleBuffer(url);
       if (!buf) return;
-      // Opportunistic background preload of the rest of the pack (ctx exists here)
-      (SAMPLE_PACKS[samplerPack] || []).forEach((u) => {
-        if (!sampleCacheRef.current.has(u)) ensureSampleBuffer(u);
-      });
       // Voice choke: stop oldest when at max polyphony
       while (activeVoicesRef.current.length >= Math.max(1, samplerVoices)) {
         const old = activeVoicesRef.current.shift();
@@ -318,6 +338,8 @@ export function useAudioSynth(config = {}) {
 
   const pendingPadRef = useRef(null);
   const padRafRef = useRef(null);
+  const padReleaseInnerRef = useRef(null);
+  const stopPadInnerRef = useRef(null);
 
   const doPadUpdate = useCallback((x, y) => {
     const ctx = audioCtxRef.current;
@@ -364,7 +386,9 @@ export function useAudioSynth(config = {}) {
           padGainRef.current.gain.cancelScheduledValues(ct);
           padGainRef.current.gain.setValueAtTime(padGainRef.current.gain.value, ct);
           padGainRef.current.gain.linearRampToValueAtTime(0.001, ct + 0.6);
-          setTimeout(() => {
+          if (padReleaseInnerRef.current) clearTimeout(padReleaseInnerRef.current);
+          padReleaseInnerRef.current = setTimeout(() => {
+            padReleaseInnerRef.current = null;
             try { padOscRef.current && padOscRef.current.stop(); } catch {}
             padOscRef.current && padOscRef.current.disconnect();
             padGainRef.current && padGainRef.current.disconnect();
@@ -381,6 +405,14 @@ export function useAudioSynth(config = {}) {
 
   const stopPad = useCallback(() => {
     if (padTimeoutRef.current) clearTimeout(padTimeoutRef.current);
+    if (padReleaseInnerRef.current) {
+      clearTimeout(padReleaseInnerRef.current);
+      padReleaseInnerRef.current = null;
+    }
+    if (stopPadInnerRef.current) {
+      clearTimeout(stopPadInnerRef.current);
+      stopPadInnerRef.current = null;
+    }
     const ctx = audioCtxRef.current;
     if (!ctx || !padGainRef.current || !padOscRef.current) return;
     try {
@@ -388,7 +420,8 @@ export function useAudioSynth(config = {}) {
       padGainRef.current.gain.cancelScheduledValues(t);
       padGainRef.current.gain.setValueAtTime(padGainRef.current.gain.value, t);
       padGainRef.current.gain.linearRampToValueAtTime(0.001, t + 0.4);
-      setTimeout(() => {
+      stopPadInnerRef.current = setTimeout(() => {
+        stopPadInnerRef.current = null;
         try { padOscRef.current && padOscRef.current.stop(); } catch {}
         padOscRef.current && padOscRef.current.disconnect();
         padGainRef.current && padGainRef.current.disconnect();
@@ -409,6 +442,8 @@ export function useAudioSynth(config = {}) {
   useEffect(() => {
     return () => {
       if (padTimeoutRef.current) clearTimeout(padTimeoutRef.current);
+      if (padReleaseInnerRef.current) clearTimeout(padReleaseInnerRef.current);
+      if (stopPadInnerRef.current) clearTimeout(stopPadInnerRef.current);
       if (padRafRef.current) cancelAnimationFrame(padRafRef.current);
       try { padOscRef.current && padOscRef.current.stop(); } catch {}
       padOscRef.current && padOscRef.current.disconnect();

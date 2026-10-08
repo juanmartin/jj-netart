@@ -31,7 +31,7 @@
   - Stamps: `spacing`, `stampSize`, `rotation` (cumulative, bipolar -180..180), `scaleJitter`, `opacity`, `decay`, `maxStamps`.
   - Background: `bgFilter`, `bgKenburns` (disabled when `bgFixed`), `bgAutoInterval` (s, 0=off), `bgFixed`, `bgFadeDuration` (s), `noiseOpacity`.
   - Sound: `soundEnabled` (master, owned by App, passed into hook) + parallel voice toggles `synthEnabled`/`samplerEnabled`; synth `soundWaveform/Volume/Duration/PitchShift`, sampler `samplerPack/Volume/Tune/PitchXLo/PitchXHi/Cutoff/Resonance/Attack/Release/Cooldown/Voices/PlayMode`; shared `delayEnabled/Time/Feedback/Wet`, `randomizeOnBgChange` (synth params only).
-  - Presets: `customPresets` (localStorage), `defaultPresetName`, `presetAutoInterval` (minutes, global — NOT part of preset data, default 1). Each auto-switch also advances `bgIndex` to a random image unless the incoming preset has `bgFixed` (decision reads `next.bgFixed`, never the stale state guard).
+  - Presets: `customPresets` (localStorage), `defaultPresetName`, `presetAutoInterval` (minutes, global — NOT part of preset data, default 1). Each auto-switch also advances `bgIndex` to a random image unless the incoming preset has `bgFixed` (decision reads `next.bgFixed`, never the stale state guard). Bg switches consume a pre-rolled warmed index (`upcomingBgRef` + `advanceBgIndex`): the next image is always decode-warmed via `new Image()` before mount, capped at 12 warmed URLs.
   - UI: `uiVisible` (default false), `assetsOpen`, `helpOpen`, `captureButtonVisible` (default true).
 - Settings drawer (`ControlPanel.jsx`) is fully wired — sliders/toggles flow through setters + `handleApplyPreset` in `App.jsx`.
 - Collage only (follower/scatter/mode removed — see history); one stamp per trigger gated by `spacing`. Legacy preset keys (`mode`, `stampsPerMove`, `rotationJitter`, `soundEngine`, `samplerPitchFromX`) are accepted on load and ignored/migrated, never saved.
@@ -54,6 +54,7 @@
 - Pad synth drives sound from mouse position, not per stamp: `updatePad(x, y)` (throttled via rAF) maps X -> frequency (110-610Hz + pitchShift), Y -> lowpass cutoff; 0.35s idle -> 0.6s release. `onStamp` in App is a no-op; `playStampSound` is only for the preview button.
 - Sampler runs in PARALLEL with the synth (independent `synthEnabled`/`samplerEnabled` toggles): mousemove fires vocal chops throttled by `samplerCooldown` (default 450ms), X -> pitch (`tune + lo..hi` range) + pan, Y -> lowpass brightness (500Hz..`cutoff`); attack/release envelope per chop, `samplerVoices` polyphony with oldest-voice choke, `random`/`sequence` play order; packs from `sampleLoader.js`, lazy-decoded + cached, background-preloaded once audio unlocks. Disabling a voice stops it (`stopPad` / choke-all); they share the ONE delay graph below.
 - Delay uses ONE persistent graph (`DelayNode` + feedback/wet/dry, created once) — never per-stamp nodes. Feedback clamped to 0.99; `delayTime` max 1.8s needs `createDelay(2.0)`.
+- Sampler cache is LRU-capped at 25 buffers with in-flight dedup (concurrent decodes of the same URL share one promise). Pack preload covers the head 10 only — never the whole pack per chop. Pad release/stop inner timers are tracked in refs and cleared on stop/unmount.
 - Requires user gesture: `initAudio` on first window click in `App.jsx`; nodes disconnect on `osc.onended`.
 
 ## Key Behaviors to Preserve

@@ -142,17 +142,63 @@ export default function App() {
     }
   }, []);
 
+  const bgIndexRef = useRef(0);
+  const upcomingBgRef = useRef(null); // pre-rolled next index, decoded ahead of mount
+  const warmedUrlsRef = useRef(new Set());
+  useEffect(() => {
+    bgIndexRef.current = bgIndex;
+  }, [bgIndex]);
+
+  const rollBgIndex = useCallback((exclude) => {
+    if (backgroundImages.length <= 1) return exclude;
+    let n;
+    do {
+      n = Math.floor(Math.random() * backgroundImages.length);
+    } while (n === exclude);
+    return n;
+  }, [backgroundImages.length]);
+
+  // Decode-only warm of a bg URL (never mounted): makes the upcoming switch
+  // cheap. Warmed URLs are capped; the browser drops unreferenced bitmaps
+  // under pressure anyway, so this is strictly best-effort.
+  const warmBgIndex = useCallback((idx) => {
+    const url = backgroundImages[idx];
+    if (!url || warmedUrlsRef.current.has(url)) return;
+    warmedUrlsRef.current.add(url);
+    if (warmedUrlsRef.current.size > 12) {
+      warmedUrlsRef.current.delete(warmedUrlsRef.current.values().next().value);
+    }
+    const img = new Image();
+    if ('decoding' in img) img.decoding = 'async';
+    img.src = url;
+  }, [backgroundImages]);
+
+  // Keep a warmed upcoming index ready at all times
+  useEffect(() => {
+    if (backgroundImages.length <= 1) return;
+    let up = upcomingBgRef.current;
+    if (up == null || up === bgIndex || up >= backgroundImages.length) {
+      up = rollBgIndex(bgIndex);
+      upcomingBgRef.current = up;
+    }
+    warmBgIndex(up);
+  }, [backgroundImages, bgIndex, rollBgIndex, warmBgIndex]);
+
+  // Consume the warmed upcoming index (falls back to a fresh roll)
+  const advanceBgIndex = useCallback(() => {
+    const cur = bgIndexRef.current;
+    let n = upcomingBgRef.current;
+    if (n == null || n === cur || n >= backgroundImages.length) {
+      n = rollBgIndex(cur);
+    }
+    upcomingBgRef.current = null; // consumed; the effect above re-rolls + warms
+    setBgIndex(n);
+  }, [backgroundImages.length, rollBgIndex]);
+
   const handleSwitchBackground = useCallback(() => {
     if (bgFixed) return;
-    setBgIndex(prev => {
-      if (backgroundImages.length <= 1) return prev;
-      let next;
-      do {
-        next = Math.floor(Math.random() * backgroundImages.length);
-      } while (next === prev);
-      return next;
-    });
-  }, [backgroundImages.length, bgFixed]);
+    advanceBgIndex();
+  }, [bgFixed, advanceBgIndex]);
 
   // Auto-rotate background every bgAutoInterval seconds (0 = off, disabled when fixed)
   useEffect(() => {
@@ -426,17 +472,11 @@ export default function App() {
       // bg follows the preset switch (decision from incoming preset —
       // state still holds the old bgFixed here, so don't use the guard)
       if (!next.bgFixed && backgroundImages.length > 1) {
-        setBgIndex(prev => {
-          let n;
-          do {
-            n = Math.floor(Math.random() * backgroundImages.length);
-          } while (n === prev);
-          return n;
-        });
+        advanceBgIndex();
       }
     }, presetAutoInterval * 60 * 1000);
     return () => clearInterval(id);
-  }, [presetAutoInterval, customPresets, handleApplyPreset, backgroundImages.length]);
+  }, [presetAutoInterval, customPresets, handleApplyPreset, backgroundImages.length, advanceBgIndex]);
 
   // Keyboard shortcuts
   useEffect(() => {

@@ -19,7 +19,7 @@ export default function BackgroundLayer({ images, currentIndex, filter, kenburns
             className={`bg-image${i === currentIndex ? ' active' : ''}${i === currentIndex && kenburns ? ' kenburns' : ''}`}
             style={style}
           >
-            <img src={src} alt="" crossOrigin="anonymous" draggable={false} loading="lazy" decoding="async" />
+            <img src={src} alt="" crossOrigin="anonymous" draggable={false} loading="lazy" decoding="async" width="1920" height="1280" />
           </div>
         );
       })}
