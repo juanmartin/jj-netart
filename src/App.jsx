@@ -421,10 +421,22 @@ export default function App() {
       const names = Object.keys(all);
       if (names.length === 0) return;
       presetAutoRef.current = (presetAutoRef.current + 1) % names.length;
-      handleApplyPreset(all[names[presetAutoRef.current]]);
+      const next = all[names[presetAutoRef.current]];
+      handleApplyPreset(next);
+      // bg follows the preset switch (decision from incoming preset —
+      // state still holds the old bgFixed here, so don't use the guard)
+      if (!next.bgFixed && backgroundImages.length > 1) {
+        setBgIndex(prev => {
+          let n;
+          do {
+            n = Math.floor(Math.random() * backgroundImages.length);
+          } while (n === prev);
+          return n;
+        });
+      }
     }, presetAutoInterval * 60 * 1000);
     return () => clearInterval(id);
-  }, [presetAutoInterval, customPresets, handleApplyPreset]);
+  }, [presetAutoInterval, customPresets, handleApplyPreset, backgroundImages.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
