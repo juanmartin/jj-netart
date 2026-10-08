@@ -27,6 +27,7 @@ export function useAudioSynth(config = {}) {
     samplerCooldown = 450,
     samplerVoices = 3,
     samplerPlayMode = 'random',
+    statsRef = null,
   } = config;
 
   const audioCtxRef = useRef(null);
@@ -42,6 +43,13 @@ export function useAudioSynth(config = {}) {
   const padFilterRef = useRef(null);
   const padTimeoutRef = useRef(null);
   const padActiveRef = useRef(false);
+
+  // Report live voice/cache counts for the debug overlay (ref write, no re-render)
+  const reportAudioStats = useCallback(() => {
+    if (!statsRef) return;
+    statsRef.current.voices = activeVoicesRef.current.length;
+    statsRef.current.cacheSize = sampleCacheRef.current.size;
+  }, [statsRef]);
 
   const ensureDelayGraph = useCallback(() => {
     const ctx = audioCtxRef.current;
@@ -130,6 +138,7 @@ export function useAudioSynth(config = {}) {
         while (cache.size > MAX_CACHED_SAMPLES) {
           cache.delete(cache.keys().next().value);
         }
+        reportAudioStats();
         return buf;
       } catch {
         return null;
@@ -174,7 +183,8 @@ export function useAudioSynth(config = {}) {
       try { source.disconnect(); } catch {}
       try { gain.disconnect(); } catch {}
     });
-  }, []);
+    reportAudioStats();
+  }, [reportAudioStats]);
 
   const triggerChop = useCallback(async (x, y, bypassCooldown = false) => {
     if (!soundEnabled) return;
@@ -238,6 +248,7 @@ export function useAudioSynth(config = {}) {
       else { g.connect(dest); }
       const voice = { source: src, gain: g };
       activeVoicesRef.current.push(voice);
+      reportAudioStats();
       src.onended = () => {
         try { src.disconnect(); } catch {}
         try { filt.disconnect(); } catch {}
@@ -245,6 +256,7 @@ export function useAudioSynth(config = {}) {
         try { pan && pan.disconnect(); } catch {}
         const i = activeVoicesRef.current.indexOf(voice);
         if (i >= 0) activeVoicesRef.current.splice(i, 1);
+        reportAudioStats();
       };
       src.start(t, 0, dur + 0.1);
     } catch {

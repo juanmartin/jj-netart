@@ -58,10 +58,11 @@
 - Requires user gesture: `initAudio` on first window click in `App.jsx`; nodes disconnect on `osc.onended`.
 
 ## Key Behaviors to Preserve
-- Keyboard shortcuts: `h` toggle UI (also hides cursor via `.hide-cursor`), `c` clear, `s` snapshot, `space` next background, `r` randomize blend, `o` capture FAB, `?` toggle help, `Esc` close modals. Help panel is `ShortcutsPanel.jsx`.
+- Keyboard shortcuts: `h` toggle UI (also hides cursor via `.hide-cursor`), `c` clear, `s` snapshot, `space` next background, `r` randomize blend, `o` capture FAB, `d` debug overlay, `?` toggle help, `Esc` close modals. Help panel is `ShortcutsPanel.jsx`.
 - Capture FAB (`.capture-fab` in `index.css`, 64px circle bottom-center): mirrors `CAPTURA`, stays visible when UI is hidden. If it "disappears", check the CSS block survived — it once landed in the same commit as a rollback.
 - Snapshot: `html2canvas` at `scale: 1`, `backgroundColor: '#09090b'`, `useCORS: true` — see `handleSnapshot` in `src/App.jsx`.
 - `bgFixed` ON stops everything background: auto-rotate, manual BG/space, AND Ken Burns (`kenburns && !bgFixed`). `randomizeOnBgChange` only randomizes sound params when `bgIndex` changes (skips initial mount).
+- Debug overlay (`d` key or SETTINGS > Debug, `DebugOverlay.jsx`): fps/frame-ms/WORST-frame at 2Hz plus live counters written into a shared `statsRef` (no re-render cost) — DOM stamps, baked total, audio voices, sampler cache, mounted/total bg, JS heap. Values turn red past thresholds (fps<30, frame>33.4ms, worst>50ms, stamps≥400, heap>500MB). Not part of presets; session-only.
 ## Pitfalls (learned the hard way)
 - Never `Math.random`-name a local the same as a prop in one scope — a `const rotation` inside `createStamp` shadowed the prop and threw TDZ `ReferenceError` on every stamp (build still passed; only sound worked because `onPadMove` runs first).
 - Never render all background `<img>`s or uncap DOM stamps — the app hangs after minutes, not seconds. Keep the 2-image bg render and `HARD_CAP`.

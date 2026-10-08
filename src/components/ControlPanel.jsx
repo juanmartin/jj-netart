@@ -155,6 +155,8 @@ export default function ControlPanel({
   // Help
   helpOpen,
   onToggleHelp,
+  debugVisible,
+  onToggleDebug,
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
@@ -665,6 +667,21 @@ export default function ControlPanel({
               onChange={onPresetAutoIntervalChange}
               unit={presetAutoInterval === 0 ? ' OFF' : 'm'}
             />
+          </div>
+          <div className="settings-section-title" style={{ marginTop: 8 }}>Debug</div>
+          <div className="settings-grid">
+            <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span>Overlay (D)</span>
+                <span className="setting-value">{debugVisible ? 'ON' : 'OFF'}</span>
+              </div>
+              <button
+                className={`toggle-btn${debugVisible ? ' active' : ''}`}
+                onClick={onToggleDebug}
+              >
+                {debugVisible ? 'DEBUG ON' : 'DEBUG OFF'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

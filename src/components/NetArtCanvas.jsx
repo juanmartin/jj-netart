@@ -15,7 +15,8 @@ export default function NetArtCanvas({
   decay = 0,
   maxStamps = 180,
   onStamp,
-  onPadMove
+  onPadMove,
+  statsRef = null
 }) {
   const [stamps, setStamps] = useState([]);
   const lastPosRef = useRef({ x: -999, y: -999 });
@@ -43,6 +44,11 @@ export default function NetArtCanvas({
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bakeCtxRef.current = ctx;
+    // Fresh mount (incl. clearKey remount on CLEAR): reset debug counters
+    if (statsRef) {
+      statsRef.current.domStamps = 0;
+      statsRef.current.bakedTotal = 0;
+    }
 
     const handleResize = () => {
       const nw = window.innerWidth;
@@ -80,6 +86,9 @@ export default function NetArtCanvas({
     const ctx = bakeCtxRef.current;
     const canvas = bakeCanvasRef.current;
     if (!ctx || !canvas || stampsToBake.length === 0) return;
+    if (statsRef) {
+      statsRef.current.bakedTotal = (statsRef.current.bakedTotal || 0) + stampsToBake.length;
+    }
     stampsToBake.forEach((stamp) => {
       const img = getCachedImage(stamp.imageUrl);
       const draw = () => {
@@ -133,6 +142,11 @@ export default function NetArtCanvas({
     }, Math.max(decay / 4, 100));
     return () => clearInterval(interval);
   }, [decay]);
+
+  // Report live DOM stamp count for the debug overlay (ref write, no re-render)
+  useEffect(() => {
+    if (statsRef) statsRef.current.domStamps = stamps.length;
+  }, [stamps, statsRef]);
 
   // Collage only — no follower/scatter modes.
 

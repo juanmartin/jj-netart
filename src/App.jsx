@@ -6,6 +6,7 @@ import ControlPanel from './components/ControlPanel.jsx';
 import AssetManagerModal from './components/AssetManagerModal.jsx';
 import ShortcutsPanel from './components/ShortcutsPanel.jsx';
 import HeaderNav from './components/HeaderNav.jsx';
+import DebugOverlay from './components/DebugOverlay.jsx';
 import { useAudioSynth } from './hooks/useAudioSynth.js';
 import { DEFAULT_FOREGROUND_ASSETS, DEFAULT_BACKGROUND_ASSETS } from './utils/assetLoader.js';
 import { SAMPLE_PACK_NAMES } from './utils/sampleLoader.js';
@@ -28,6 +29,9 @@ export default function App() {
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [captureButtonVisible, setCaptureButtonVisible] = useState(true);
+  const [debugVisible, setDebugVisible] = useState(false);
+  // Shared mutable counters for the debug overlay (ref writes, no re-renders)
+  const statsRef = useRef({ domStamps: 0, bakedTotal: 0, voices: 0, cacheSize: 0 });
   const [bgFilter, setBgFilter] = useState('none');
   const [bgKenburns, setBgKenburns] = useState(true);
   const [bgAutoInterval, setBgAutoInterval] = useState(10);
@@ -103,6 +107,7 @@ export default function App() {
     samplerCooldown,
     samplerVoices,
     samplerPlayMode,
+    statsRef,
   });
 
   const handlePadMove = useCallback((x, y) => {
@@ -246,6 +251,10 @@ export default function App() {
 
   const handleToggleCaptureButton = useCallback(() => {
     setCaptureButtonVisible(prev => !prev);
+  }, []);
+
+  const handleToggleDebug = useCallback(() => {
+    setDebugVisible(prev => !prev);
   }, []);
 
   const handleApplyPreset = useCallback((preset) => {
@@ -507,6 +516,13 @@ export default function App() {
         return;
       }
 
+      // 'd' toggles the debug overlay (even when a modal is open)
+      if (e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        handleToggleDebug();
+        return;
+      }
+
       // Don't capture other shortcuts when a modal is open
       if (assetsOpen || helpOpen) return;
 
@@ -538,7 +554,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [assetsOpen, helpOpen, handleToggleUI, handleClear, handleSnapshot, handleSwitchBackground, handleToggleCaptureButton]);
+  }, [assetsOpen, helpOpen, handleToggleUI, handleClear, handleSnapshot, handleSwitchBackground, handleToggleCaptureButton, handleToggleDebug]);
 
   // Global drag-and-drop on the canvas (adds to foreground by default)
   useEffect(() => {
@@ -598,6 +614,7 @@ export default function App() {
         maxStamps={maxStamps}
         onStamp={handleStamp}
         onPadMove={handlePadMove}
+        statsRef={statsRef}
       />
       <HeaderNav uiVisible={uiVisible} />
       <ControlPanel
@@ -697,6 +714,8 @@ export default function App() {
         onSamplerVoicesChange={setSamplerVoices}
         samplerPlayMode={samplerPlayMode}
         onSamplerPlayModeChange={setSamplerPlayMode}
+        debugVisible={debugVisible}
+        onToggleDebug={handleToggleDebug}
         helpOpen={helpOpen}
         onToggleHelp={handleToggleHelp}
       />
@@ -707,6 +726,12 @@ export default function App() {
         backgroundImages={backgroundImages}
         onAddForeground={handleAddForeground}
         onAddBackground={handleAddBackground}
+      />
+      <DebugOverlay
+        visible={debugVisible}
+        statsRef={statsRef}
+        bgTotal={backgroundImages.length}
+        maxStamps={maxStamps}
       />
       <ShortcutsPanel
         visible={helpOpen}
