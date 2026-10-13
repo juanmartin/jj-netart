@@ -55,7 +55,7 @@
 - Sampler runs in PARALLEL with the synth (independent `synthEnabled`/`samplerEnabled` toggles): mousemove fires vocal chops throttled by `samplerCooldown` (default 450ms), X -> pitch (`tune + lo..hi` range) + pan, Y -> lowpass brightness (500Hz..`cutoff`); attack/release envelope per chop, `samplerVoices` polyphony with oldest-voice choke, `random`/`sequence` play order; packs from `sampleLoader.js`, lazy-decoded + cached, background-preloaded once audio unlocks. Disabling a voice stops it (`stopPad` / choke-all); they share the ONE delay graph below.
 - Delay uses ONE persistent graph (`DelayNode` + feedback/wet/dry, created once) — never per-stamp nodes. Feedback clamped to 0.99; `delayTime` max 1.8s needs `createDelay(2.0)`.
 - Sampler cache is LRU-capped at 25 buffers with in-flight dedup (concurrent decodes of the same URL share one promise). Pack preload covers the head 10 only — never the whole pack per chop. Pad release/stop inner timers are tracked in refs and cleared on stop/unmount.
-- Requires user gesture: `initAudio` on first window click in `App.jsx`; nodes disconnect on `osc.onended`.
+- Requires user gesture: `initAudio` on first real click/keydown/pointerdown in `App.jsx` (autoplay policy rejects simulated clicks); nodes disconnect on `osc.onended`.
 
 ## Key Behaviors to Preserve
 - Keyboard shortcuts: `h` toggle UI (also hides cursor via `.hide-cursor`), `c` clear, `s` snapshot, `space` next background, `r` randomize blend, `o` capture FAB, `d` debug overlay, `?` toggle help, `Esc` close modals. Help panel is `ShortcutsPanel.jsx`.

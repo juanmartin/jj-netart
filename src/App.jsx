@@ -116,11 +116,23 @@ export default function App() {
     updatePad(x, y);
   }, [updatePad]);
 
-  // Initialize audio on first interaction
+  // Initialize audio on first real interaction. Autoplay policy only
+  // accepts trusted gestures — a simulated/dispatched click does NOT count.
   useEffect(() => {
-    const handler = () => { initAudio(); window.removeEventListener('click', handler); };
+    const handler = () => {
+      initAudio();
+      window.removeEventListener('click', handler);
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('pointerdown', handler);
+    };
     window.addEventListener('click', handler);
-    return () => window.removeEventListener('click', handler);
+    window.addEventListener('keydown', handler);
+    window.addEventListener('pointerdown', handler);
+    return () => {
+      window.removeEventListener('click', handler);
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('pointerdown', handler);
+    };
   }, [initAudio]);
 
   const handleStamp = useCallback(() => {
