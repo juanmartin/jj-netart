@@ -756,6 +756,57 @@ html, body {
   color: #f87171;
 }
 
+/* ─── Start Screen ─── */
+.start-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #09090b;
+  color: var(--text-primary);
+  cursor: pointer;
+  animation: startFade 0.6s ease-out;
+  outline: none;
+}
+
+.app-container.hide-cursor .start-screen,
+.app-container.hide-cursor .start-screen * {
+  cursor: pointer !important;
+}
+
+.start-icon {
+  width: 72px;
+  height: 72px;
+  animation: startPulse 2.2s ease-in-out infinite;
+}
+
+.start-rings {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--text-primary);
+  border-radius: 50%;
+  animation: startRing 2.2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes startFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes startPulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.07); opacity: 1; }
+}
+
+@keyframes startRing {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
 /* ─── Utilities ─── */
 .hidden {
   opacity: 0 !important;

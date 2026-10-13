@@ -464,5 +464,5 @@ export function useAudioSynth(config = {}) {
     };
   }, []);
 
-  return { playStampSound, initAudio, updatePad, stopPad, triggerChop };
+  return { playStampSound, initAudio, updatePad, stopPad, triggerChop, preloadPack };
 }

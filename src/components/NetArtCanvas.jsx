@@ -16,7 +16,8 @@ export default function NetArtCanvas({
   maxStamps = 180,
   onStamp,
   onPadMove,
-  statsRef = null
+  statsRef = null,
+  started = true
 }) {
   const [stamps, setStamps] = useState([]);
   const lastPosRef = useRef({ x: -999, y: -999 });
@@ -234,12 +235,12 @@ export default function NetArtCanvas({
     }
   }, [handleMove]);
 
-  // Intro demo: paint a short sweep on mount so visitors see they can paint.
-  // Runs once, cancels on first real pointer input. Silent until audio
-  // unlocks (autoplay policy needs a real gesture) — pad moves still fire,
-  // so sound starts working the moment the user takes over.
+  // Intro demo: paint a short sweep once the experience starts, so visitors
+  // see they can paint. Runs once, cancels on first real pointer input.
+  // Silent until audio unlocks (autoplay policy needs a real gesture) — pad
+  // moves still fire, so sound works the moment the user takes over.
   useEffect(() => {
-    if (demoDoneRef.current || !images || images.length === 0) return;
+    if (!started || demoDoneRef.current || !images || images.length === 0) return;
     demoDoneRef.current = true;
     const w = window.innerWidth || 1200;
     const h = window.innerHeight || 800;
@@ -262,7 +263,7 @@ export default function NetArtCanvas({
       clearTimeout(startId);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [images, handleMove]);
+  }, [started, images, handleMove]);
 
   return (
     <div
