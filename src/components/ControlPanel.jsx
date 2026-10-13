@@ -51,6 +51,16 @@ function Slider({ label, value, min, max, step, onChange, unit = '' }) {
   );
 }
 
+function presetMatches(snapshot, current) {
+  if (!snapshot || !current) return false;
+  const keys = Object.keys(snapshot);
+  if (keys.length === 0) return false;
+  for (const k of keys) {
+    if (current[k] !== snapshot[k]) return false;
+  }
+  return true;
+}
+
 export default function ControlPanel({
   blendMode,
   onBlendModeChange,
@@ -79,6 +89,8 @@ export default function ControlPanel({
   onMaxStampsChange,
   presetAutoInterval,
   onPresetAutoIntervalChange,
+  cycleCustomPresets,
+  onCycleCustomPresetsChange,
   onApplyPreset,
   customPresets = {},
   defaultPresetName,
@@ -157,6 +169,8 @@ export default function ControlPanel({
   onToggleHelp,
   debugVisible,
   onToggleDebug,
+  appliedRef,
+  getPresetData,
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
@@ -165,6 +179,18 @@ export default function ControlPanel({
     const idx = BLEND_MODES.indexOf(blendMode);
     onBlendModeChange(BLEND_MODES[(idx + 1) % BLEND_MODES.length]);
   };
+
+  // LIVE = last-applied preset whose snapshot still matches live settings.
+  // Any manual tweak after apply flips the label to MANUAL (no extra state —
+  // derived every render, ~40 key comparisons).
+  const applied = appliedRef ? appliedRef.current : null;
+  const currentData = getPresetData ? getPresetData() : {};
+  const live = applied && applied.name && presetMatches(applied.data, currentData) ? applied : null;
+  const liveLabel = !applied || !applied.name ? '—' : live ? `${applied.name} · ${applied.source.toUpperCase()}` : 'MANUAL';
+  const repoCount = Object.keys(REPO_PRESETS).length;
+  const customCount = Object.keys(customPresets).length;
+  const cycleLabel = presetAutoInterval === 0 ? 'OFF' : `${repoCount} REPO${cycleCustomPresets && customCount > 0 ? ` + ${customCount} CUSTOM` : ''}`;
+  const isLive = (source, name) => !!live && live.source === source && live.name === name;
 
   return (
     <>
@@ -554,12 +580,26 @@ export default function ControlPanel({
           </div>
 
           <div className="settings-section-title">Presets</div>
+          <div className="settings-grid">
+            <div className="setting-row">
+              <div className="setting-label">
+                <span>Live</span>
+                <span className="setting-value">{liveLabel}</span>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span>Cycle</span>
+                <span className="setting-value">{cycleLabel}</span>
+              </div>
+            </div>
+          </div>
           <div className="settings-presets">
             {Object.keys(PRESETS).map((name) => (
               <button
                 key={name}
-                className="preset-btn"
-                onClick={() => onApplyPreset(PRESETS[name])}
+                className={`preset-btn${isLive('built-in', name) ? ' active' : ''}`}
+                onClick={() => onApplyPreset(PRESETS[name], { name, source: 'built-in' })}
               >
                 {name}
               </button>
@@ -573,8 +613,8 @@ export default function ControlPanel({
                 {Object.keys(REPO_PRESETS).map((name) => (
                   <button
                     key={name}
-                    className="preset-btn"
-                    onClick={() => onApplyPreset(REPO_PRESETS[name])}
+                    className={`preset-btn${isLive('repo', name) ? ' active' : ''}`}
+                    onClick={() => onApplyPreset(REPO_PRESETS[name], { name, source: 'repo' })}
                   >
                     {name}
                   </button>
@@ -636,13 +676,13 @@ export default function ControlPanel({
           {Object.keys(customPresets).length > 0 && (
             <div className="settings-grid" style={{ marginTop: 8 }}>
               {Object.keys(customPresets).map((name) => (
-                <div key={name} className="setting-row settings-row-full" style={{ border: '1px solid var(--border-subtle)', padding: 6, borderRadius: 2 }}>
+                <div key={name} className="setting-row settings-row-full" style={{ border: `1px solid ${isLive('custom', name) ? 'var(--text-primary)' : 'var(--border-subtle)'}`, padding: 6, borderRadius: 2 }}>
                   <div className="setting-label">
                     <span>{name}</span>
                     <span className="setting-value">{defaultPresetName === name ? '★ default' : ''}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
-                    <button className="preset-btn" onClick={() => onApplyPreset(customPresets[name])}>APPLY</button>
+                    <button className="preset-btn" onClick={() => onApplyPreset(customPresets[name], { name, source: 'custom' })}>APPLY</button>
                     <button className="preset-btn" onClick={() => onExportPreset && onExportPreset(name)}>EXPORT</button>
                     <button className={`preset-btn${defaultPresetName === name ? ' active' : ''}`} onClick={() => onSetDefaultPreset && onSetDefaultPreset(name)}>{defaultPresetName === name ? 'DEFAULT ✓' : 'SET DEFAULT'}</button>
                     <button className="preset-btn" onClick={() => onDeleteCustomPreset && onDeleteCustomPreset(name)} style={{ color: '#f87171' }}>DELETE</button>
@@ -667,6 +707,18 @@ export default function ControlPanel({
               onChange={onPresetAutoIntervalChange}
               unit={presetAutoInterval === 0 ? ' OFF' : 'm'}
             />
+            <div className="setting-row settings-row-full">
+              <div className="setting-label">
+                <span>Cycle Customs</span>
+                <span className="setting-value">{cycleCustomPresets ? 'ON' : 'REPO ONLY'}</span>
+              </div>
+              <button
+                className={`toggle-btn${cycleCustomPresets ? ' active' : ''}`}
+                onClick={() => onCycleCustomPresetsChange(!cycleCustomPresets)}
+              >
+                {cycleCustomPresets ? 'CUSTOMS IN CYCLE' : 'REPO ONLY'}
+              </button>
+            </div>
           </div>
           <div className="settings-section-title" style={{ marginTop: 8 }}>Debug</div>
           <div className="settings-grid">

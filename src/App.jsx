@@ -6,6 +6,7 @@ import ControlPanel from './components/ControlPanel.jsx';
 import AssetManagerModal from './components/AssetManagerModal.jsx';
 import ShortcutsPanel from './components/ShortcutsPanel.jsx';
 import HeaderNav from './components/HeaderNav.jsx';
+import StartScreen from './components/StartScreen.jsx';
 import DebugOverlay from './components/DebugOverlay.jsx';
 import { useAudioSynth } from './hooks/useAudioSynth.js';
 import { DEFAULT_FOREGROUND_ASSETS, DEFAULT_BACKGROUND_ASSETS } from './utils/assetLoader.js';
@@ -28,6 +29,7 @@ export default function App() {
   const [bgIndex, setBgIndex] = useState(() => randomStartIndex(DEFAULT_BACKGROUND_ASSETS));
   const [blendMode, setBlendMode] = useState('normal');
   const [uiVisible, setUiVisible] = useState(false);
+  const [started, setStarted] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [captureButtonVisible, setCaptureButtonVisible] = useState(true);
@@ -52,6 +54,9 @@ export default function App() {
   const [decay, setDecay] = useState(0);
   const [maxStamps, setMaxStamps] = useState(180);
   const [presetAutoInterval, setPresetAutoInterval] = useState(1);
+  // Default experience cycles repo presets only; customs join the cycle
+  // only when the user enables it in the panel. Global, not preset data.
+  const [cycleCustomPresets, setCycleCustomPresets] = useState(false);
   const [customPresets, setCustomPresets] = useState({});
   const [defaultPresetName, setDefaultPresetNameState] = useState(null);
   // VISUAL — background
@@ -85,7 +90,7 @@ export default function App() {
 
   const containerRef = useRef(null);
   const toggleSound = useCallback(() => setSoundEnabled(prev => !prev), []);
-  const { playStampSound, initAudio, updatePad } = useAudioSynth({
+  const { playStampSound, initAudio, updatePad, preloadPack } = useAudioSynth({
     waveform: soundWaveform,
     volume: soundVolume,
     duration: soundDuration,
@@ -115,6 +120,15 @@ export default function App() {
   const handlePadMove = useCallback((x, y) => {
     updatePad(x, y);
   }, [updatePad]);
+
+  // Startup gate: real trusted click on ENTER unlocks audio (autoplay
+  // policy), preloads the sampler pack head, then reveals the experience
+  // and lets the intro demo run.
+  const handleStart = useCallback(() => {
+    initAudio();
+    preloadPack(samplerPack);
+    setStarted(true);
+  }, [initAudio, preloadPack, samplerPack]);
 
   // Initialize audio on first real interaction. Autoplay policy only
   // accepts trusted gestures — a simulated/dispatched click does NOT count.
@@ -252,7 +266,7 @@ export default function App() {
   const handleForegroundClick = useCallback((e) => {
     if (!fgChangeOnClick) return;
     // ignore clicks on UI
-    if (e.target.closest('.control-panel') || e.target.closest('.settings-drawer') || e.target.closest('.asset-modal-overlay') || e.target.closest('.shortcuts-modal') || e.target.closest('.header-nav')) return;
+    if (e.target.closest('.control-panel') || e.target.closest('.settings-drawer') || e.target.closest('.asset-modal-overlay') || e.target.closest('.shortcuts-modal') || e.target.closest('.header-nav') || e.target.closest('.start-screen')) return;
     setFgIndex(prev => {
       if (foregroundImages.length <= 1) return prev;
       let next;
@@ -287,7 +301,8 @@ export default function App() {
     setDebugVisible(prev => !prev);
   }, []);
 
-  const handleApplyPreset = useCallback((preset) => {
+  const handleApplyPreset = useCallback((preset, meta) => {
+    if (meta) appliedRef.current = { name: meta.name, source: meta.source, data: preset };
     if (preset.spacing !== undefined) setSpacing(preset.spacing);
     if (preset.stampSize !== undefined) setStampSize(preset.stampSize);
     // legacy: stampsPerMove (density) removed — single stamp per trigger
@@ -404,7 +419,7 @@ export default function App() {
         const updated = { ...loadCustomPresets(), [presetName]: data };
         setCustomPresets(updated);
         saveCustomPresets(updated);
-        handleApplyPreset(data);
+        handleApplyPreset(data, { name: presetName, source: 'custom' });
       } catch (err) {
         console.error('Failed to import preset', err);
       }
@@ -464,9 +479,9 @@ export default function App() {
     const defName = getDefaultPresetName();
     setDefaultPresetNameState(defName);
     if (defName && stored[defName]) {
-      handleApplyPreset(stored[defName]);
+      handleApplyPreset(stored[defName], { name: defName, source: 'custom' });
     } else if (defaultRepoPreset) {
-      handleApplyPreset(defaultRepoPreset);
+      handleApplyPreset(defaultRepoPreset, { name: 'default', source: 'repo' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -496,18 +511,23 @@ export default function App() {
     randomizeSoundParams();
   }, [bgIndex, randomizeOnBgChange, randomizeSoundParams]);
 
+  // Last-applied preset for the LIVE indicator (ref: no extra renders —
+  // the apply itself already re-renders). Staleness is derived at render
+  // by comparing the snapshot against live settings.
+  const appliedRef = useRef({ name: null, source: null, data: null });
   const presetAutoRef = useRef(0);
   useEffect(() => {
     if (presetAutoInterval <= 0) return;
-    const getAll = () => ({ ...REPO_PRESETS_MAP, ...customPresets });
+    const getAll = () => (cycleCustomPresets ? { ...REPO_PRESETS_MAP, ...customPresets } : { ...REPO_PRESETS_MAP });
     if (Object.keys(getAll()).length <= 1) return;
     const id = setInterval(() => {
       const all = getAll();
       const names = Object.keys(all);
       if (names.length === 0) return;
       presetAutoRef.current = (presetAutoRef.current + 1) % names.length;
-      const next = all[names[presetAutoRef.current]];
-      handleApplyPreset(next);
+      const cycledName = names[presetAutoRef.current];
+      const next = all[cycledName];
+      handleApplyPreset(next, { name: cycledName, source: customPresets[cycledName] ? 'custom' : 'repo' });
       // bg follows the preset switch (decision from incoming preset —
       // state still holds the old bgFixed here, so don't use the guard)
       if (!next.bgFixed && backgroundImages.length > 1) {
@@ -515,7 +535,7 @@ export default function App() {
       }
     }, presetAutoInterval * 60 * 1000);
     return () => clearInterval(id);
-  }, [presetAutoInterval, customPresets, handleApplyPreset, backgroundImages.length, advanceBgIndex]);
+  }, [presetAutoInterval, cycleCustomPresets, customPresets, handleApplyPreset, backgroundImages.length, advanceBgIndex]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -645,6 +665,7 @@ export default function App() {
         onStamp={handleStamp}
         onPadMove={handlePadMove}
         statsRef={statsRef}
+        started={started}
       />
       <HeaderNav uiVisible={uiVisible} />
       <ControlPanel
@@ -674,6 +695,10 @@ export default function App() {
         onMaxStampsChange={setMaxStamps}
         presetAutoInterval={presetAutoInterval}
         onPresetAutoIntervalChange={setPresetAutoInterval}
+        cycleCustomPresets={cycleCustomPresets}
+        onCycleCustomPresetsChange={setCycleCustomPresets}
+        appliedRef={appliedRef}
+        getPresetData={getCurrentPresetData}
         onApplyPreset={handleApplyPreset}
         customPresets={customPresets}
         defaultPresetName={defaultPresetName}
@@ -767,6 +792,7 @@ export default function App() {
         visible={helpOpen}
         onClose={() => setHelpOpen(false)}
       />
+      {!started && <StartScreen onStart={handleStart} />}
       {captureButtonVisible && (
         <button
           className="capture-fab"
