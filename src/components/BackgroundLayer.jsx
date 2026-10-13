@@ -4,18 +4,25 @@ export default function BackgroundLayer({ images, currentIndex, filter, kenburns
   const n = images.length;
   const safeCurrent = n ? currentIndex % n : 0;
 
-  // shownIndex lags one frame behind currentIndex: the incoming image mounts
-  // WITHOUT `active` (opacity 0) and only receives it on the next frame, so
-  // its opacity transition actually runs 0 -> 1. Mounting it already-active
+  // shownIndex lags behind currentIndex: the incoming image mounts WITHOUT
+  // `active` (opacity 0) and only receives it on a later frame, so its
+  // opacity transition actually runs 0 -> 1. Mounting it already-active
   // would pop it to opacity 1 instantly = hard cut, no crossfade.
   const [shownIndex, setShownIndex] = useState(safeCurrent);
   // fadingIndex keeps the outgoing image mounted until its fade-out
-  // completes. Dropping it when shownIndex catches up (2 frames in) would
-  // yank it mid-fade and drop to the black base = "black then fade in".
+  // completes. It MUST be set during RENDER (prevCurrent comparison below),
+  // not in the effect: effects run one render too late, after the outgoing
+  // already unmounted = black flash, then fade-in. This is React's
+  // render-phase update pattern (converges immediately, no loop).
   const [fadingIndex, setFadingIndex] = useState(null);
+  const [prevCurrent, setPrevCurrent] = useState(safeCurrent);
+  if (prevCurrent !== safeCurrent) {
+    setPrevCurrent(safeCurrent);
+    setFadingIndex(shownIndex);
+  }
+
   useEffect(() => {
     if (shownIndex === safeCurrent) return;
-    setFadingIndex(shownIndex);
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => setShownIndex(safeCurrent));
@@ -29,7 +36,8 @@ export default function BackgroundLayer({ images, currentIndex, filter, kenburns
   // Release the fading layer once its fade-out has had time to complete
   useEffect(() => {
     if (fadingIndex == null) return;
-    const id = setTimeout(() => setFadingIndex(null), fadeDuration * 1000 + 150);
+    const ms = Number.isFinite(+fadeDuration) ? +fadeDuration * 1000 + 150 : 1500;
+    const id = setTimeout(() => setFadingIndex(null), ms);
     return () => clearTimeout(id);
   }, [fadingIndex, fadeDuration]);
 
