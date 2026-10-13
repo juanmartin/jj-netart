@@ -56,6 +56,7 @@
 - Delay uses ONE persistent graph (`DelayNode` + feedback/wet/dry, created once) — never per-stamp nodes. Feedback clamped to 0.99; `delayTime` max 1.8s needs `createDelay(2.0)`.
 - Sampler cache is LRU-capped at 25 buffers with in-flight dedup (concurrent decodes of the same URL share one promise). Pack preload covers the head 10 only — never the whole pack per chop. Pad release/stop inner timers are tracked in refs and cleared on stop/unmount.
 - Requires user gesture: `initAudio` on first real click/keydown/pointerdown in `App.jsx` (autoplay policy rejects simulated clicks); nodes disconnect on `osc.onended`.
+- Intro demo: `NetArtCanvas` paints a ~1.8s sine sweep on mount (once, cancelled by first real mousemove/touch) so visitors see they can paint. Silent until audio unlocks; pad moves fire throughout so sound works the moment the user takes over.
 
 ## Key Behaviors to Preserve
 - Keyboard shortcuts: `h` toggle UI (also hides cursor via `.hide-cursor`), `c` clear, `s` snapshot, `space` next background, `r` randomize blend, `o` capture FAB, `d` debug overlay, `?` toggle help, `Esc` close modals. Help panel is `ShortcutsPanel.jsx`.

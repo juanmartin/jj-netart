@@ -27,6 +27,8 @@ export default function NetArtCanvas({
   const bakeCanvasRef = useRef(null);
   const bakeCtxRef = useRef(null);
   const imageCacheRef = useRef(new Map());
+  const demoCancelledRef = useRef(false);
+  const demoDoneRef = useRef(false);
 
   // Setup bake canvas (persistent low-weight layer for unlimited draw)
   useEffect(() => {
@@ -220,15 +222,47 @@ export default function NetArtCanvas({
   }, [spacing, createStamp, onPadMove]);
 
   const onMouseMove = useCallback((e) => {
+    demoCancelledRef.current = true;
     handleMove(e.clientX, e.clientY);
   }, [handleMove]);
 
   const onTouchMove = useCallback((e) => {
     if (e.touches.length > 0) {
       e.preventDefault();
+      demoCancelledRef.current = true;
       handleMove(e.touches[0].clientX, e.touches[0].clientY);
     }
   }, [handleMove]);
+
+  // Intro demo: paint a short sweep on mount so visitors see they can paint.
+  // Runs once, cancels on first real pointer input. Silent until audio
+  // unlocks (autoplay policy needs a real gesture) — pad moves still fire,
+  // so sound starts working the moment the user takes over.
+  useEffect(() => {
+    if (demoDoneRef.current || !images || images.length === 0) return;
+    demoDoneRef.current = true;
+    const w = window.innerWidth || 1200;
+    const h = window.innerHeight || 800;
+    const dur = 1800;
+    let raf = 0;
+    // Slight delay so the default preset applies before the demo paints
+    const startId = setTimeout(() => {
+      const t0 = performance.now();
+      const tick = (t) => {
+        const p = Math.min(1, (t - t0) / dur);
+        if (p >= 1 || demoCancelledRef.current) return;
+        const x = w * (0.15 + 0.7 * p);
+        const y = h * 0.5 + Math.sin(p * Math.PI * 3) * h * 0.18;
+        handleMove(x, y);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }, 400);
+    return () => {
+      clearTimeout(startId);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [images, handleMove]);
 
   return (
     <div
