@@ -20,10 +20,12 @@ const REPO_PRESETS_MAP = Object.fromEntries(
 
 const BLEND_MODES = ['normal', 'difference', 'multiply', 'screen', 'overlay'];
 
+const randomStartIndex = (arr) => (arr.length > 1 ? Math.floor(Math.random() * arr.length) : 0);
+
 export default function App() {
   const [foregroundImages, setForegroundImages] = useState(DEFAULT_FOREGROUND_ASSETS);
   const [backgroundImages, setBackgroundImages] = useState(DEFAULT_BACKGROUND_ASSETS);
-  const [bgIndex, setBgIndex] = useState(0);
+  const [bgIndex, setBgIndex] = useState(() => randomStartIndex(DEFAULT_BACKGROUND_ASSETS));
   const [blendMode, setBlendMode] = useState('normal');
   const [uiVisible, setUiVisible] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
@@ -37,7 +39,7 @@ export default function App() {
   const [bgAutoInterval, setBgAutoInterval] = useState(10);
   const [bgFixed, setBgFixed] = useState(false);
   const [fgChangeOnClick, setFgChangeOnClick] = useState(false);
-  const [fgIndex, setFgIndex] = useState(0);
+  const [fgIndex, setFgIndex] = useState(() => randomStartIndex(DEFAULT_FOREGROUND_ASSETS));
   const [bgFadeDuration, setBgFadeDuration] = useState(1.2);
   const [isPortraitView, setIsPortraitView] = useState(() => window.innerWidth < window.innerHeight);
   const [clearKey, setClearKey] = useState(0);
@@ -147,9 +149,10 @@ export default function App() {
     }
   }, []);
 
-  const bgIndexRef = useRef(0);
+  const bgIndexRef = useRef(bgIndex);
   const upcomingBgRef = useRef(null); // pre-rolled next index, decoded ahead of mount
   const warmedUrlsRef = useRef(new Set());
+  const fgWarmedRef = useRef(new Set());
   useEffect(() => {
     bgIndexRef.current = bgIndex;
   }, [bgIndex]);

@@ -27,7 +27,7 @@
 
 ## State & Wiring
 - All app state lives in `src/App.jsx`, grouped:
-  - Canvas: `foregroundImages`, `fgIndex` (+`fgChangeOnClick`), `bgIndex`, `backgroundImages`, `blendMode`, `clearKey` (`NetArtCanvas` is keyed by `clearKey` for reset).
+  - Canvas: `foregroundImages`, `fgIndex` (+`fgChangeOnClick`), `bgIndex`, `backgroundImages`, `blendMode`, `clearKey` (`NetArtCanvas` is keyed by `clearKey` for reset). Both `bgIndex` and `fgIndex` start at a random position (`randomStartIndex`) so every load opens on different images.
   - Stamps: `spacing`, `stampSize`, `rotation` (cumulative, bipolar -180..180), `scaleJitter`, `opacity`, `decay`, `maxStamps`.
   - Background: `bgFilter`, `bgKenburns` (disabled when `bgFixed`), `bgAutoInterval` (s, 0=off), `bgFixed`, `bgFadeDuration` (s), `noiseOpacity`.
   - Sound: `soundEnabled` (master, owned by App, passed into hook) + parallel voice toggles `synthEnabled`/`samplerEnabled`; synth `soundWaveform/Volume/Duration/PitchShift`, sampler `samplerPack/Volume/Tune/PitchXLo/PitchXHi/Cutoff/Resonance/Attack/Release/Cooldown/Voices/PlayMode`; shared `delayEnabled/Time/Feedback/Wet`, `randomizeOnBgChange` (synth params only).
