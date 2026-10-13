@@ -204,6 +204,21 @@ export default function App() {
     warmBgIndex(up);
   }, [backgroundImages, bgIndex, rollBgIndex, warmBgIndex]);
 
+  // Decode-warm the whole foreground pool (small files) so the first stamp
+  // of each image doesn't hitch on decode mid-draw. Runs on pool change only.
+  useEffect(() => {
+    foregroundImages.forEach((url) => {
+      if (!url || fgWarmedRef.current.has(url)) return;
+      fgWarmedRef.current.add(url);
+      const img = new Image();
+      if ('decoding' in img) img.decoding = 'async';
+      img.src = url;
+    });
+    while (fgWarmedRef.current.size > 200) {
+      fgWarmedRef.current.delete(fgWarmedRef.current.values().next().value);
+    }
+  }, [foregroundImages]);
+
   // Consume the warmed upcoming index (falls back to a fresh roll)
   const advanceBgIndex = useCallback(() => {
     const cur = bgIndexRef.current;
